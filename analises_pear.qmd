@@ -1,0 +1,152 @@
+---
+title: "PEAR - Biodiversidade & Ecossistemas"
+author: "Felipe & Ivson"
+format: html
+---
+
+## Carregar dados e blibliotecas
+
+```{r}
+data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies
+
+adapta_pe<-read.delim2("~/pear/DadosBiod.csv")
+
+library(geobr)
+library(sf)
+library(tidyverse)
+library(viridis)
+
+```
+
+## Estado de Pernambuco
+
+```{r}
+
+muni_pe <- read_municipality(
+  code_muni = "PE", 
+  year= 2022,
+  showProgress = FALSE
+  )
+
+muni_pe<-muni_pe[muni_pe$code_muni != "2602909", ] # retirar Feranndo de Noronha
+
+# plot
+ggplot() +
+  geom_sf(data=muni_pe, fill="#2D3E50", color="#FEBF57", size=.15, show.legend = FALSE) +
+    coord_sf(xlim = c(-42, -34), ylim = c(-7, -10))+
+  geom_point(data = data_PE,aes(x=decimalLongitude, y=decimalLatitude),color = "red", alpha = 0.2)+
+  theme_minimal()
+
+```
+
+
+```{r}
+## Registros por município
+
+data_PE %>% 
+  select(decimalLatitude,decimalLongitude) %>% 
+  mutate(id_points = as.character(1:n()))->sp_coord
+
+muni_pe <- st_as_sf(muni_pe) # convert to sf object
+sp_coord<-st_as_sf(sp_coord, coords = c( "decimalLongitude", "decimalLatitude"), crs = 4326)
+
+
+st_crs(sp_coord) # SIRGAS 2000
+st_crs(muni_pe)# SIRGAS 2000 As duas OK
+
+sp_coord <- st_transform(sp_coord, st_crs(muni_pe))
+
+
+```
+
+
+```{r}
+# Dados fornecidos por Ivson
+biodiv <- read.csv("~/pear/reg_mun.csv", sep=";", dec = ",")
+
+biodiv %>% 
+  group_by(CD_MUN, NM_MUN, AREA_KM2) %>% 
+  summarize(sp_count = n_distinct(Species)) %>% 
+  rename(code_muni=CD_MUN)-> sp_count
+
+adapta_pe %>% 
+  rename(code_muni=geocod_ibge)-> adapta_pe
+  
+
+left_join(sp_count,muni_pe, by="code_muni")->full_sp_count
+full_sp_count %>% 
+  left_join(adapta_pe, by="code_muni") %>% 
+  select(-c(2,5:10))->dados_comp
+glimpse(dados_comp)
+
+dados_comp %>% 
+  mutate(sp_per_area=sp_count/AREA_KM2)->dados_comp
+
+dados_comp_geom<-st_as_sf(dados_comp)
+```
+
+
+```{r}
+
+# Gráficos e Mapas com a base completa biodiversidade
+
+ggplot()+
+  geom_sf(data=dados_comp_geom, aes(fill=vuln), show.legend = TRUE) + 
+  scale_fill_viridis(name="valor")+
+  labs(title = "Vulnerabilidade à Integreidade do Biomas")
+
+## Sensibilidade
+
+dados_comp_geom %>% 
+  ggplot()+geom_sf(data=dados_comp_geom, aes(fill=sensib), show.legend = TRUE)+
+   scale_fill_viridis(name="valor")+
+  labs(title = "Sensibilidade do Bioma")
+
+### 
+
+dados_comp_geom %>% 
+  ggplot()+geom_sf(data=dados_comp_geom, aes(fill=s_luc_2017), show.legend = TRUE)+
+   scale_fill_viridis(name="valor")+
+  labs(title = "Mudança do Uso de Solo")
+  
+  
+```
+
+
+## Correlações entre índices que compõem Vulnerabilidade
+```{r}
+
+library(corrplot)
+
+dados_comp_geom %>% 
+  as_tibble() %>% 
+  select(sp_count, vuln:v_cap & -geom)->cor_vuln
+
+M<-cor(cor_vuln)
+corrplot(M, method="number",type = 'lower', diag = FALSE)
+
+
+```
+
+## Valores médios de V=S-C+E
+
+```{r}
+
+## Sensibilidade
+
+dados_comp_geom %>% 
+  as_tibble() %>%
+  select(rds, vuln, sensib, v_cap, expos ) %>% 
+  pivot_longer(!rds, names_to = "indic") %>%
+  group_by(rds, indic) %>% 
+  summarise_if(is.numeric, list(mean, sd)) %>% 
+  ggplot(aes(rds,fn1, color=indic))+
+  geom_point(size=3)+
+  geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2))+
+  coord_flip()+
+  labs(y="Valor do Índice", x="Região de Desenvolvimento Socioeconômico")
+
+
+
+```
+
