@@ -102,10 +102,21 @@ dados_comp_geom %>%
   labs(title = "Sensibilidade do Bioma")
 
 ### 
+library(lwgeom) # otimizar junção dos grids
 
 dados_comp_geom %>% 
-  ggplot()+geom_sf(data=dados_comp_geom, aes(fill=s_luc_2017), show.legend = TRUE)+
-   scale_fill_viridis(name="valor")+
+  st_transform(., crs=4674)
+
+dados_comp_geom %>% 
+  group_by(rds) %>%
+  summarise(across(geometry, ~ st_combine(.)), .groups = "keep")->geom_rds
+  #summarize(geometry = st_union(geometry))->geom_rds
+  
+ggplot()+
+  geom_sf(data=dados_comp_geom, aes(fill=s_luc_2017), show.legend = TRUE)+
+  geom_sf(data=geom_rds, alpha=0.1, lwd=1, aes(color=rds))+
+  scale_color_brewer(palette = "Set3")+
+  scale_fill_viridis(name="valor")+
   labs(title = "Mudança do Uso de Solo")
   
   
