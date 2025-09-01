@@ -28,7 +28,7 @@ muni_pe <- read_municipality(
   showProgress = FALSE
   )
 
-muni_pe<-muni_pe[muni_pe$code_muni != "2602909", ] # retirar Feranndo de Noronha
+muni_pe<-muni_pe[muni_pe$code_muni != "2605459", ] # retirar Feranndo de Noronha
 
 # plot
 ggplot() +
@@ -47,54 +47,53 @@ data_PE %>%
   select(decimalLatitude,decimalLongitude) %>% 
   mutate(id_points = as.character(1:n()))->sp_coord
 
-muni_pe <- st_as_sf(muni_pe) # convert to sf object
-sp_coord<-st_as_sf(sp_coord, coords = c( "decimalLongitude", "decimalLatitude"), crs = 4326)
-
+muni_pe <- st_as_sf(muni_pe, crs = 4326) # convert to sf object
+sp_coord<-st_as_sf(data_PE, coords = c( "decimalLongitude", "decimalLatitude"), crs = 4326)
+sp_coord <- st_transform(sp_coord, st_crs(muni_pe))
 
 st_crs(sp_coord) # SIRGAS 2000
 st_crs(muni_pe)# SIRGAS 2000 As duas OK
 
-sp_coord <- st_transform(sp_coord, st_crs(muni_pe))
+sp_coord$geometry # 262.332 pontos
+muni_pe$geom # 185 municípios
+
+library(sfhotspot)
+
+sp_counts_mun <- hotspot_count(sp_coord, grid = muni_pe) # Mensagem de aviso: 4,088 point is outside the area covered by the supplied polygons.
+
+sum(sp_counts_mun$n) # 258244 registros
+
+glimpse(sp_counts_mun) # OK para registros
+
+sp_counts_mun %>% 
+  mutate(area_muni_km2=st_area(sp_counts_mun$geometry)/1000000) %>% 
+  mutate(sp_per_area=n/area_muni_km2) %>% 
+  filter(code_muni!= "2605459")->sp_counts_mun
+
+
 
 
 ```
 
 
 ```{r}
-# Dados fornecidos por Ivson
-biodiv <- read.csv("~/pear/reg_mun.csv", sep=";", dec = ",")
-
-biodiv %>% 
-  group_by(CD_MUN, NM_MUN, AREA_KM2) %>% 
-  summarize(sp_count = n_distinct(Species)) %>% 
-  rename(code_muni=CD_MUN)-> sp_count
-
-adapta_pe %>% 
-  rename(code_muni=geocod_ibge)-> adapta_pe
-  
-
-left_join(sp_count,muni_pe, by="code_muni")->full_sp_count
-full_sp_count %>% 
-  left_join(adapta_pe, by="code_muni") %>% 
-  select(-c(2,5:10))->dados_comp
-glimpse(dados_comp)
-
-dados_comp %>% 
-  mutate(sp_per_area=sp_count/AREA_KM2)->dados_comp
-
-dados_comp_geom<-st_as_sf(dados_comp)
-```
-
-
-```{r}
-
 # Gráficos e Mapas com a base completa biodiversidade
 
 ggplot()+
-  geom_sf(data=dados_comp_geom, aes(fill=vuln), show.legend = TRUE) + 
-  scale_fill_viridis(name="valor")+
-  labs(title = "Vulnerabilidade à Integreidade do Biomas")
+  geom_sf(data=sp_counts_mun, aes(fill=log(n+1), show.legend = TRUE)) + 
+  scale_fill_viridis(name="log(# de registros)")+
+  labs(title = "Número de registros no GBIF por km²")
+```
 
+## Dados provenientes do Adapta Brasil
+
+```{r}
+
+dados_AB <- read.delim2("~/pear/DadosBiod.csv")
+dados_AB %>% 
+  rename(code_muni=geocod_ibge) ->dados_AB
+
+dados_comp_geom<-left_join(sp_counts_mun,dados_AB)
 ## Sensibilidade
 
 dados_comp_geom %>% 
@@ -132,7 +131,7 @@ corrplot(M, method="number",type = 'lower', diag = FALSE)
 
 ```{r}
 
-## Sensibilidade
+## Todos os sub-índices
 
 dados_comp_geom %>% 
   as_tibble() %>%
@@ -141,10 +140,51 @@ dados_comp_geom %>%
   group_by(rds, indic) %>% 
   summarise_if(is.numeric, list(mean, sd)) %>% 
   ggplot(aes(rds,fn1, color=indic))+
-  geom_point(size=3)+
-  geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2))+
+  geom_point(size=3,position=position_dodge(width=0.7))+
+  scale_color_discrete(name= "",labels=c("Exposição", "Sensibilidade", "Capacidade Adaptativa", "Vulnerabilidade"))+
+  geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2),position=position_dodge(width=0.7))+
   coord_flip()+
-  labs(y="Valor do Índice", x="Região de Desenvolvimento Socioeconômico")
+  theme(legend.position = "top")+
+  labs(y="Valor do Índice", x="Região de Desenvolvimento Socioeconômico")->A
+
+A
+
+## Risco climático atual e projetado
+
+dados_comp_geom %>% 
+  as_tibble() %>%
+  select(rds,risco_atual:risco_SWL2.0) %>% 
+  pivot_longer(!rds, names_to = "risco") %>%
+  group_by(rds, risco) %>% 
+  summarise_if(is.numeric, list(mean, sd)) %>% 
+  ggplot(aes(rds,fn1, group=risco, color=risco))+
+  geom_point(size=3,position=position_dodge(width=0.7))+
+  scale_color_discrete(name= "",labels=c("Risco Atual", "Risco SWL 1.5", "Risco SWL 2.0"))+
+  geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2),position=position_dodge(width=0.7))+
+  coord_flip()+
+  theme(legend.position = "top")+
+  labs(y="Risco Climático", x="Região de Desenvolvimento Socioeconômico")->B
+B
+
+## Ameaça à Integridade do Bioma
+
+
+dados_comp_geom %>% 
+  as_tibble() %>%
+  select(rds,ameaca_atual:ameaca_SWL2.0) %>% 
+  pivot_longer(!rds, names_to = "risco") %>%
+  group_by(rds, risco) %>% 
+  summarise_if(is.numeric, list(mean, sd)) %>% 
+  ggplot(aes(rds,fn1, group=risco, color=risco))+
+  geom_point(size=3,position=position_dodge(width=0.7))+
+  scale_color_discrete(name= "",labels=c("Ameaça Atual", "Ameaça SWL 1.5", "Ameaça SWL 2.0"))+
+  geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2),position=position_dodge(width=0.7))+
+  coord_flip()+
+  theme(legend.position = "top")+
+  labs(y="Ameaça à Integridade do Bioma", x="Região de Desenvolvimento Socioeconômico")->C
+
+C
+
 
 
 
