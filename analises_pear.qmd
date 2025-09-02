@@ -9,13 +9,6 @@ format: html
 ```{r}
 #| message: false
 #| warning: false
-data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies via GBIF
-
-adapta_pe<-read.csv("~/pear/DadosBiod.csv", sep = ";") # Dados do Adapta Brasil sobre Integridade dos Biomas
-adapta_pe %>% 
-  as_tibble() %>% 
-  rename(code_muni=geocod_ibge) %>% 
-  filter(code_muni!= "2605459") ->adapta_pe
 
 library(geobr)
 library(sf)
@@ -24,6 +17,14 @@ library(viridis)
 library(sfhotspot)
 library(units)
 library(lwgeom) # otimizar junção dos grids
+
+data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies via GBIF
+
+adapta_pe<-read.csv("~/pear/DadosBiod.csv", sep = ";", dec = ",") # Dados do Adapta Brasil sobre Integridade dos Biomas
+adapta_pe %>% 
+  as_tibble() %>% 
+  rename(code_muni=geocod_ibge) %>% 
+  filter(code_muni!= "2605459") ->adapta_pe
 
 ```
 
@@ -181,7 +182,7 @@ dados_comp_geom %>%
     sensib >=0.8 ~ "Muito Alto",
     TRUE ~ "unknown")) %>% 
   select(starts_with("s_")|categ |rds)-> dados_sensib
-  pca_sensib<-prcomp(dados_sensib[,-c(5,6)], scale = TRUE) 
+  pca_sensib<-prcomp(dados_sensib[,-c(5,6,7)], scale = TRUE) 
   summary(pca_sensib)
   pca_sensib$rotation
   
