@@ -7,30 +7,45 @@ format: html
 ## Carregar dados e blibliotecas
 
 ```{r}
-data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies
+#| message: false
+#| warning: false
+data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies via GBIF
 
-adapta_pe<-read.delim2("~/pear/DadosBiod.csv")
+adapta_pe<-read.delim2("~/pear/DadosBiod.csv") # Dados do Adapta Brasil sobre Integridade dos Biomas
+adapta_pe %>% 
+  rename(code_muni=geocod_ibge) %>% 
+  filter(code_muni!= "2605459") ->adapta_pe
 
 library(geobr)
 library(sf)
 library(tidyverse)
 library(viridis)
+library(sfhotspot)
+library(units)
+library(lwgeom) # otimizar junção dos grids
 
 ```
 
-## Estado de Pernambuco
+## Carregando bases espaciais dos municípios de PE
+
+Usamos o pacote `geobr` para contruir os mapas que serão usados para ilustrar os resultados espaccialmente.
 
 ```{r}
-
 muni_pe <- read_municipality(
   code_muni = "PE", 
   year= 2022,
   showProgress = FALSE
   )
 
-muni_pe<-muni_pe[muni_pe$code_muni != "2605459", ] # retirar Feranndo de Noronha
+muni_pe<-muni_pe[muni_pe$code_muni != "2605459", ] # retirar Fernando de Noronha
+```
 
-# plot
+### Gráfico teste
+
+Um gráfico teste para unir os municípios de PE e os registros de espécies compilados no GBIF. Esses dados serão posteriormente usados para interpretar o risco à biodiversidade e ecossistemas e separar zonas mais ou menos amostradas quanto à biodiversidade.
+
+```{r}
+# plot unindo registros do GBIF e 
 ggplot() +
   geom_sf(data=muni_pe, fill="#2D3E50", color="#FEBF57", size=.15, show.legend = FALSE) +
     coord_sf(xlim = c(-42, -34), ylim = c(-7, -10))+
@@ -54,71 +69,179 @@ sp_coord <- st_transform(sp_coord, st_crs(muni_pe))
 st_crs(sp_coord) # SIRGAS 2000
 st_crs(muni_pe)# SIRGAS 2000 As duas OK
 
-sp_coord$geometry # 262.332 pontos
+sp_coord$geometry # 262.332 pontos válidos
 muni_pe$geom # 185 municípios
 
-library(sfhotspot)
+sp_counts_mun <- hotspot_count(sp_coord, grid = muni_pe) # 12,908 point is outside the area covered by the supplied polygons. Imprecisão dos datums?
 
-sp_counts_mun <- hotspot_count(sp_coord, grid = muni_pe) # Mensagem de aviso: 4,088 point is outside the area covered by the supplied polygons.
-
-sum(sp_counts_mun$n) # 258244 registros
+sum(sp_counts_mun$n) # 258244 registros. É bastente
 
 glimpse(sp_counts_mun) # OK para registros
 
 sp_counts_mun %>% 
-  mutate(area_muni_km2=st_area(sp_counts_mun$geometry)/1000000) %>% 
-  mutate(sp_per_area=n/area_muni_km2) %>% 
+  mutate(area_muni_km2=st_area(sp_counts_mun$geometry)/1000000) %>% # calcular área dos municípios
+  mutate(sp_per_area=n/area_muni_km2) %>% # espécies por KM²
   filter(code_muni!= "2605459")->sp_counts_mun
 
-
-
+sp_counts_mun %>% 
+  mutate(rds=adapta_pe$rds) %>% 
+  mutate(sp_per_area=as.numeric(sp_per_area))->sp_counts_mun
 
 ```
 
+## Esforço de coleta por RDS de PE
+
+Temos, no geral um esforço de coleta baixo para PE em geral, com poucos registros por município e a região metropolitana (MET) é a mais bem amostrada. Destaque para o SFR, pouquíssimo amostrada na média.
+
+```{r}
+sp_counts_mun %>% 
+  as_tibble() %>% 
+  #group_by(rds) %>% 
+  #summarise(media = mean(sp_per_area), sd = sd(sp_per_area)) %>% 
+  #arrange(desc(media)) %>% 
+  #mutate(rds = fct_reorder(rds, mean(sp_per_area))) %>% 
+  ggplot(aes(rds,log(sp_per_area)))+
+  geom_jitter(size=1)+
+  geom_errorbar(stat = "summary", fun.data = mean_cl_boot, width = 0.4)+
+  geom_point(size = 4, stat = "summary", fun = mean, shape = 1) +
+  #geom_errorbar(aes(ymin=media-sd, ymax=media+sd), width=.5,
+  #               position=position_dodge(0.05))+
+  labs(x= "Região de Desenvolvimento Socioeconômico", y="Número médio de registros de espécies / km²")+
+  geom_hline(yintercept = mean(log(sp_counts_mun$sp_per_area)), col = "red", linetype="dashed")+
+  theme_bw()
+
+```
+
+## Dados de registros de espécies por município (fonte: GBIF)
 
 ```{r}
 # Gráficos e Mapas com a base completa biodiversidade
 
 ggplot()+
   geom_sf(data=sp_counts_mun, aes(fill=log(n+1), show.legend = TRUE)) + 
-  scale_fill_viridis(name="log(# de registros)")+
-  labs(title = "Número de registros no GBIF por km²")
+  scale_fill_viridis(name="log(# de registros + 1)")+
+  labs(title = "Número de registros de espécies no GBIF por km²")
+
+# Adicionar RDS
+
+left_join(sp_counts_mun, adapta_pe, by="code_muni")
+
+
+
 ```
 
 ## Dados provenientes do Adapta Brasil
 
 ```{r}
-
-dados_AB <- read.delim2("~/pear/DadosBiod.csv")
-dados_AB %>% 
-  rename(code_muni=geocod_ibge) ->dados_AB
-
-dados_comp_geom<-left_join(sp_counts_mun,dados_AB)
-## Sensibilidade
-
-dados_comp_geom %>% 
-  ggplot()+geom_sf(data=dados_comp_geom, aes(fill=sensib), show.legend = TRUE)+
-   scale_fill_viridis(name="valor")+
-  labs(title = "Sensibilidade do Bioma")
-
-### 
-library(lwgeom) # otimizar junção dos grids
+dados_comp_geom<-left_join(muni_pe,adapta_pe)
 
 dados_comp_geom %>% 
   st_transform(., crs=4674)
 
 dados_comp_geom %>% 
   group_by(rds) %>%
-  summarise(across(geometry, ~ st_combine(.)), .groups = "keep")->geom_rds
-  #summarize(geometry = st_union(geometry))->geom_rds
+  summarise(across(geom, ~ st_combine(.)), .groups = "keep")->geom_rds # Funde bases de forma que as categorias de RDS são incluídas numa única base
+```
+
+## Análise de Vulnerabilidade
+
+Grau de suscetibilidade do bioma a uma determinada ameaça climática. A vulnerabilidade refere-se às características que um determinado ecossistema possui que refletem à **suscetibilidade** dele em relação às variações climáticas que podem afetar, direta ou indiretamente, a integridade do bioma. A vulnerabilidade está vinculada a situação de **sensibilidade** e **capacidade adaptativa** desse sistema, ou seja, se baseia em fatores conjunturais existentes antes do impacto climático. (fonte: AdaptaBrasil)
+
+### Sensibilidade do bioma
+Grau de alteração potencial do estado que o ecossistema pode sofrer, direta ou indiretamente, uma vez em contato com as variações climáticas que afetam a integridade do bioma. A sensibilidade é uma propriedade inerente a um ecossistema, existente antes da ameaça climática e independente (separada) da exposição. O Índice de Sensibilidade é composto pelos indicadores temáticos: **Mudança e uso do solo, Cobertura do solo, Densidade populacional e de estabelecimentos, e Infraestrutura**.
+
+```{r}
+## Sensibilidade
+
+library(RColorBrewer)
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    sensib <0.2 ~ "Muito Baixo",
+    sensib >=0.2 & sensib < 0.4 ~ "Baixo",
+    sensib >=0.4 & sensib < 0.6 ~ "Médio",
+    sensib >=0.6 & sensib < 0.8 ~ "Alto",
+    sensib >=0.8 ~ "Muito Alto",
+    TRUE ~ "unknown")) %>% 
+  ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
+  scale_fill_brewer(palette="RdYlGn", name = "Categoria")+
+  labs(title = "Sensibilidade do Bioma")
+
+```
+
+```{r}
+## PCA para entender componetes da sensibiidade por categoria de risco
+
+dados_comp_geom %>% 
+  as_tibble() %>% 
+  mutate(categ=case_when(
+    sensib <0.2 ~ "Muito Baixo",
+    sensib >=0.2 & sensib < 0.4 ~ "Baixo",
+    sensib >=0.4 & sensib < 0.6 ~ "Médio",
+    sensib >=0.6 & sensib < 0.8 ~ "Alto",
+    sensib >=0.8 ~ "Muito Alto",
+    TRUE ~ "unknown")) %>% 
+  select(starts_with("s_")|categ |rds)-> dados_sensib
+  pca_sensib<-prcomp(dados_sensib[,-c(5,6)], scale = TRUE) 
+  summary(pca_sensib)
+  pca_sensib$rotation
   
-ggplot()+
-  geom_sf(data=dados_comp_geom, aes(fill=s_luc_2017), show.legend = TRUE)+
-  geom_sf(data=geom_rds, alpha=0.1, lwd=1, aes(color=rds))+
-  scale_color_brewer(palette = "Set3")+
-  scale_fill_viridis(name="valor")+
-  labs(title = "Mudança do Uso de Solo")
-  
+pca_data_sensib<-as.data.frame(pca_sensib$x[, 1:2]) # extract first two PCs
+pca_data_sensib <- cbind(pca_data_sensib, dados_sensib$categ, dados_sensib$rds) # add species to df
+colnames(pca_data_sensib) <- c("PC1", "PC2", "categoria","RDS") # change column names
+
+pca_data_sensib %>% 
+  ggplot() +
+  aes(PC1, PC2, color = categoria, shape = categoria) + # define plot area
+  geom_point(size = 2) + # adding data points
+  coord_fixed()+ # fixing coordinates
+  stat_ellipse(geom="polygon", level=0.95, alpha=0.1) #adding a stat
+
+```
+#### Resumo da análise de sensibilidade
+Os componentes da sensibilidade são praticamente ortogonais, significando que qualquer redução na dimensionalidade é prejudicial à interpretação. O primeiro PC é o úico com valor > 1 mas os PCs 2 e 3 tem valores muito próximos de 1. Portanto, o melhor é proceder para uma análise dos componentes do índice de sensibilidade de forma separada e isolada.
+
+
+### Sensibilidade do bioma
+### Indicador temático - Mudança de uso do solo
+
+```{r}
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_luc_2017 <0.2 ~ "Muito Baixo",
+    s_luc_2017 >=0.2 & s_luc_2017 < 0.4 ~ "Baixo",
+    s_luc_2017 >=0.4 & s_luc_2017 < 0.6 ~ "Médio",
+    s_luc_2017 >=0.6 & s_luc_2017 < 0.8 ~ "Alto",
+    s_luc_2017 >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_luc_2017)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_luc_2017))) %>%
+  ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
+  scale_fill_brewer(palette="RdYlGn", name = "Categoria")+
+  labs(title = "Mudança do Uso de Solo")->luc_map
+luc_map
+
+## Análise por RDS
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_luc_2017 <0.2 ~ "Muito Baixo",
+    s_luc_2017 >=0.2 & s_luc_2017 < 0.4 ~ "Baixo",
+    s_luc_2017 >=0.4 & s_luc_2017 < 0.6 ~ "Médio",
+    s_luc_2017 >=0.6 & s_luc_2017 < 0.8 ~ "Alto",
+    s_luc_2017 >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_luc_2017)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_luc_2017))) %>% 
+  ggplot(aes(rds,s_luc_2017))+
+  geom_jitter(size=1)+
+  geom_errorbar(stat = "summary", fun.data = mean_cl_boot, width = 0.4)+
+  geom_point(size = 4, stat = "summary", fun = mean, shape = 1) +
+  #geom_errorbar(aes(ymin=media-sd, ymax=media+sd), width=.5,
+  #               position=position_dodge(0.05))+
+  labs(x= "Região de Desenvolvimento Socioeconômico", y="Sensibilidade à Mudanças no Uso de Solo")+
+  geom_hline(yintercept = mean(dados_comp_geom$s_luc_2017), col = "red", linetype="dashed")+
+  theme_bw()->luc_graph
+luc_graph
+
+cowplot::plot_grid(luc_map, luc_graph, ncol=1)
+
   
 ```
 
