@@ -11,8 +11,9 @@ format: html
 #| warning: false
 data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies via GBIF
 
-adapta_pe<-read.delim2("~/pear/DadosBiod.csv") # Dados do Adapta Brasil sobre Integridade dos Biomas
+adapta_pe<-read.csv("~/pear/DadosBiod.csv", sep = ";") # Dados do Adapta Brasil sobre Integridade dos Biomas
 adapta_pe %>% 
+  as_tibble() %>% 
   rename(code_muni=geocod_ibge) %>% 
   filter(code_muni!= "2605459") ->adapta_pe
 
@@ -34,10 +35,12 @@ Usamos o pacote `geobr` para contruir os mapas que serão usados para ilustrar o
 muni_pe <- read_municipality(
   code_muni = "PE", 
   year= 2022,
-  showProgress = FALSE
+  showProgress = FALSE,
+  simplified = FALSE
   )
 
 muni_pe<-muni_pe[muni_pe$code_muni != "2605459", ] # retirar Fernando de Noronha
+
 ```
 
 ### Gráfico teste
@@ -96,6 +99,7 @@ Temos, no geral um esforço de coleta baixo para PE em geral, com poucos registr
 ```{r}
 sp_counts_mun %>% 
   as_tibble() %>% 
+  left_join(adapta_pe[,-3], by="code_muni") %>% 
   #group_by(rds) %>% 
   #summarise(media = mean(sp_per_area), sd = sd(sp_per_area)) %>% 
   #arrange(desc(media)) %>% 
@@ -122,18 +126,13 @@ ggplot()+
   scale_fill_viridis(name="log(# de registros + 1)")+
   labs(title = "Número de registros de espécies no GBIF por km²")
 
-# Adicionar RDS
-
-left_join(sp_counts_mun, adapta_pe, by="code_muni")
-
-
 
 ```
 
 ## Dados provenientes do Adapta Brasil
 
 ```{r}
-dados_comp_geom<-left_join(muni_pe,adapta_pe)
+dados_comp_geom<-left_join(muni_pe[,c(1,8)],adapta_pe, by="code_muni")
 
 dados_comp_geom %>% 
   st_transform(., crs=4674)
@@ -141,6 +140,7 @@ dados_comp_geom %>%
 dados_comp_geom %>% 
   group_by(rds) %>%
   summarise(across(geom, ~ st_combine(.)), .groups = "keep")->geom_rds # Funde bases de forma que as categorias de RDS são incluídas numa única base
+
 ```
 
 ## Análise de Vulnerabilidade
@@ -205,6 +205,17 @@ Os componentes da sensibilidade são praticamente ortogonais, significando que q
 ### Indicador temático - Mudança de uso do solo
 
 ```{r}
+## RDS Mapa
+
+dados_comp_geom %>% 
+  filter(code_muni==2612471)
+
+dados_comp_geom %>% 
+  ggplot()+geom_sf(aes(fill=rds))+
+  theme(legend.position = "top")->rds_map
+rds_map
+
+
 dados_comp_geom %>% 
   mutate(categ=case_when(
     s_luc_2017 <0.2 ~ "Muito Baixo",
@@ -240,7 +251,7 @@ dados_comp_geom %>%
   theme_bw()->luc_graph
 luc_graph
 
-cowplot::plot_grid(luc_map, luc_graph, ncol=1)
+cowplot::plot_grid(luc_map, rds_map, luc_graph, ncol=2, nrow = 2)
 
   
 ```
