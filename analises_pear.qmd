@@ -179,7 +179,7 @@ centroids_rds <- geom_rds %>%
 
 Grau de suscetibilidade do bioma a uma determinada ameaça climática. A vulnerabilidade refere-se às características que um determinado ecossistema possui que refletem à **suscetibilidade** dele em relação às variações climáticas que podem afetar, direta ou indiretamente, a integridade do bioma. A vulnerabilidade está vinculada a situação de **sensibilidade** e **capacidade adaptativa** desse sistema, ou seja, se baseia em fatores conjunturais existentes antes do impacto climático. (fonte: AdaptaBrasil)
 
-### Sensibilidade do bioma
+# Sensibilidade do bioma
 Grau de alteração potencial do estado que o ecossistema pode sofrer, direta ou indiretamente, uma vez em contato com as variações climáticas que afetam a integridade do bioma. A sensibilidade é uma propriedade inerente a um ecossistema, existente antes da ameaça climática e independente (separada) da exposição. O Índice de Sensibilidade é composto pelos indicadores temáticos: **Mudança e uso do solo, Cobertura do solo, Densidade populacional e de estabelecimentos, e Infraestrutura**.
 
 ```{r}
@@ -239,7 +239,7 @@ pca_data_sensib %>%
 Os componentes da sensibilidade são praticamente ortogonais, significando que qualquer redução na dimensionalidade é prejudicial à interpretação. O primeiro PC é o úico com valor > 1 mas os PCs 2 e 3 tem valores muito próximos de 1. Portanto, o melhor é proceder para uma análise dos componentes do índice de sensibilidade de forma separada e isolada.
 
 
-### Sensibilidade do bioma
+## Sensibilidade do bioma
 
 Daqui por diante as análises virão com duas representações gráficoas: 1) mapa de de PE com valores por município, podendo ser valores brutos ou categóricos (categorias Adapta Brasil) e 2) Gráfico mostrando valores médios e variação por região de desenvolvimento socioeconômico (RDS).
 
@@ -261,7 +261,7 @@ rds_map
 ```
 Essas são as RDS de Pernambuco
 
-### Indicador temático - Mudança de uso do solo
+### Indicador temático - Mudança e uso do solo
 
 Indicador composto por 4 variáveis: 1-Uso de Agrotóxicos; 2- Estabelecimentos com agricultura familiar; 3- Estabalecimentos com práticas sustentáveis e 4- Frequência de focos do fogo
 
@@ -308,26 +308,100 @@ plot_grid(luc_map, luc_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels =
   
 ```
 
-**Conclusão**: Há um gradiente de sensibiliadde á mudança no uso de solo que aumenta em direção ao oeste, particularmente nas RD de SFR e ARP (valores acima da média para o estado). Por outro lado, as RD de AGM e AGC e AGM (Agreste), possuem menor vulnerabilidade a essas mudanças.
+**Conclusão**: Há um gradiente de sensibiliadde á mudança no uso de solo que aumenta em direção ao oeste, particularmente nas RD de SFR e ARP (valores acima da média para o estado). Por outro lado, as RD de AGM e AGC e AGM (Agreste), possuem menor vulnerabilidade a essas mudanças. 
 
-### Indicadores individuais - Mudança de uso do solo
+### Indicadores individuais - Mudança e uso do solo
 
 ```{r}
 
 dados_comp_geom %>% 
+  as_tibble() %>% 
   select(starts_with("sl"), rds) %>% 
-  pivot_longer(cols=starts_with("sl"), names_to="indic", values_to="value") %>% 
-  ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.5)+
-  scale_fill_manual(values= col.map)+
-  scale_color_manual(values= col.map)+
+  rename("Uso de Agrotóxicos"="sl_agrotox","Ausência de Agricultura Familiar"="sl_agr_fam", "Ausência de Práticas Sustentáveis"="sl_prat_sust", "Risco de Fogo"="sl_fogo") %>% 
+  pivot_longer(cols=1:4, names_to="indic", values_to="value") %>% 
+  ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
+  scale_fill_brewer(palette="Spectral")+
+  scale_color_brewer(palette="Spectral")+
   facet_wrap(.~rds)+
-  theme_bw()+theme(legend.position = "top")
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_luc_indic
+
+hist_luc_indic
+
+```
+**Conclusão**: Com base nos indicadores individuais de **Mudança e Uso de Solo** é possível perceber que praticamente todos os municípios e RDs de PE não possuem práticas sustentáveis de agricultura, obtendo valores altos de sensibilidade e gerandobaixa distintção entre entidades (município ou RD). As RD do Agreste têm baixo uso de agrotóxico e baixo risco de fogo. Os altos valores de sensibilidade a mudança e uso de solo estão concentrados nas RDs de SFR, SCP e ARP, onde há municípios com maior sensisbilidade à todos os indicadores individuais.
+
+### Indicador temático - Cobertura do solo
+
+Indicador composto por 4 variáveis: 1-Passivo ambiental; 2- Desmatamento; 3- Pastagem degradada e 4- Mineração
+
+```{r}
+#| message: false
+#| warning: false
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_csol_2017 <0.2 ~ "Muito Baixo",
+    s_csol_2017 >=0.2 & s_csol_2017 < 0.4 ~ "Baixo",
+    s_csol_2017 >=0.4 & s_csol_2017 < 0.6 ~ "Médio",
+    s_csol_2017 >=0.6 & s_csol_2017 < 0.8 ~ "Alto",
+    s_csol_2017 >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_csol_2017)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_csol_2017))) %>%
+  ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
+  scale_fill_brewer(palette="RdYlGn", name = "")+theme_bw()+theme(legend.position = "bottom")+
+  labs(title = "Sensibilidade Associada à Cobertura do Solo")->csol_map
+csol_map
+
+## Análise por RDS
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_csol_2017 <0.2 ~ "Muito Baixo",
+    s_csol_2017 >=0.2 & s_csol_2017 < 0.4 ~ "Baixo",
+    s_csol_2017 >=0.4 & s_csol_2017 < 0.6 ~ "Médio",
+    s_csol_2017 >=0.6 & s_csol_2017 < 0.8 ~ "Alto",
+    s_csol_2017 >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_csol_2017)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_csol_2017))) %>% 
+  ggplot(aes(rds,s_csol_2017))+
+  geom_jitter(size=1)+
+  geom_errorbar(stat = "summary", fun.data = mean_cl_boot, width = 0.4)+
+  geom_point(size = 4, stat = "summary", fun = mean, shape = 1) +
+  #geom_errorbar(aes(ymin=media-sd, ymax=media+sd), width=.5,
+  #               position=position_dodge(0.05))+
+  labs(x= "Região de Desenvolvimento \n Socioeconômico", y="Sensibilidade à Mudanças na Cobertura do Solo")+
+  geom_hline(yintercept = mean(dados_comp_geom$s_csol_2017), col = "red", linetype="dashed")+
+  theme_bw()+coord_flip()->csol_graph
+csol_graph
+
+plot_grid(csol_map, csol_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels = c("a","b"))->csol_grid
+csol_grid
+
   
+```
+
+**Conclusão**: Não há um padrão muito claro espacila para este indicador, com excessão de alguns núcelos de alta sensibilidade espalhados pelo estado e outros de média sensibilidade. Destaque para o IPA. 
+
+### Indicadores individuais - Cobertura do solo
+
+```{r}
+
+dados_comp_geom %>% 
+  as_tibble() %>% 
+  select(sc_passivo:sc_miner, rds) %>% 
+  rename("Passivo Ambiental"="sc_passivo","Desmatamento"="sc_desmat", "Pastagens Degradadas"="sc_pastag", "Mineração"="sc_miner") %>% 
+  pivot_longer(cols=1:4, names_to="indic", values_to="value") %>% 
+  ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
+  scale_fill_brewer(palette="Spectral")+
+  scale_color_brewer(palette="Spectral")+
+  facet_wrap(.~rds)+
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_muc_indic
+
+hist_muc_indic
+
+plot_grid(csol_grid, hist_muc_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
 
 
 ```
-
-
+**Conclusão**: Com base nos indicadores individuais de **Cobertura do Solo** podemos verificar que praticamente toda a zona seca do estado possui pastagens degradadas. Por outro lado, o passivo ambiental é geralmente baixo, sugerindo que a maior parte dos municípios possui RL e APP conservadas (Será?). O que mais diferencia os municípios é o desmatamento, que se espalha fortemente pelo Agreste Central e Meridional (AGC e AGM) elaguns municípios do Sertão.  
 
 ## Valores médios de Vulnerabilidae pro RDS 
 
