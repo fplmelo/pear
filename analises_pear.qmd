@@ -3,6 +3,10 @@ title: "PEAR - Biodiversidade & Ecossistemas"
 author: "Felipe & Ivson"
 format: html
 ---
+# Respositório github para estas análises
+
+[AQUI](https://github.com/fplmelo/pear)
+
 
 ## Carregar dados e blibliotecas
 
@@ -11,6 +15,7 @@ format: html
 #| warning: false
 
 library(geobr)
+library(cowplot)
 library(sf)
 library(tidyverse)
 library(viridis)
@@ -33,12 +38,19 @@ adapta_pe %>%
 Usamos o pacote `geobr` para contruir os mapas que serão usados para ilustrar os resultados espaccialmente.
 
 ```{r}
-muni_pe <- read_municipality(
-  code_muni = "PE", 
-  year= 2022,
-  showProgress = FALSE,
-  simplified = FALSE
-  )
+
+# # Correr os códigos abaixo somente uma vez
+# muni_pe <- read_municipality(
+#   code_muni = "PE",
+#   year= 2022,
+#   showProgress = FALSE,
+#   simplified = FALSE
+#   )
+# class(muni_pe)
+# 
+# write_sf(muni_pe,"muni_pe.gpkg")
+
+muni_pe<-st_read("muni_pe.gpkg")
 
 muni_pe<-muni_pe[muni_pe$code_muni != "2605459", ] # retirar Fernando de Noronha
 
@@ -60,6 +72,9 @@ ggplot() +
 
 
 ```{r}
+#| message: false
+#| warning: false
+
 ## Registros por município
 
 data_PE %>% 
@@ -98,6 +113,8 @@ sp_counts_mun %>%
 Temos, no geral um esforço de coleta baixo para PE em geral, com poucos registros por município e a região metropolitana (MET) é a mais bem amostrada. Destaque para o SFR, pouquíssimo amostrada na média.
 
 ```{r}
+#| message: false
+#| warning: false
 sp_counts_mun %>% 
   as_tibble() %>% 
   left_join(adapta_pe[,-3], by="code_muni") %>% 
@@ -120,19 +137,25 @@ sp_counts_mun %>%
 ## Dados de registros de espécies por município (fonte: GBIF)
 
 ```{r}
+#| message: false
+#| warning: false
 # Gráficos e Mapas com a base completa biodiversidade
 
 ggplot()+
   geom_sf(data=sp_counts_mun, aes(fill=log(n+1), show.legend = TRUE)) + 
-  scale_fill_viridis(name="log(# de registros + 1)")+
-  labs(title = "Número de registros de espécies no GBIF por km²")
+  scale_fill_viridis(name="")+
+  labs(title = "Número de registros de espécies por km²")
 
 
 ```
 
-## Dados provenientes do Adapta Brasil
+# Análise de risco climático para área temática de Biodievrsidade e Ecossistemas
+
+Dados provenientes do Adapta Brasil
 
 ```{r}
+#| message: false
+#| warning: false
 dados_comp_geom<-left_join(muni_pe[,c(1,8)],adapta_pe, by="code_muni")
 
 dados_comp_geom %>% 
@@ -141,6 +164,14 @@ dados_comp_geom %>%
 dados_comp_geom %>% 
   group_by(rds) %>%
   summarise(across(geom, ~ st_combine(.)), .groups = "keep")->geom_rds # Funde bases de forma que as categorias de RDS são incluídas numa única base
+
+# ggplot(data=geom_rds)+geom_sf(aes(fill=rds)) # só checando se está correto. OK
+
+centroids_rds <- geom_rds %>%
+  st_make_valid() %>% 
+  st_centroid() 
+
+
 
 ```
 
@@ -152,6 +183,9 @@ Grau de suscetibilidade do bioma a uma determinada ameaça climática. A vulnera
 Grau de alteração potencial do estado que o ecossistema pode sofrer, direta ou indiretamente, uma vez em contato com as variações climáticas que afetam a integridade do bioma. A sensibilidade é uma propriedade inerente a um ecossistema, existente antes da ameaça climática e independente (separada) da exposição. O Índice de Sensibilidade é composto pelos indicadores temáticos: **Mudança e uso do solo, Cobertura do solo, Densidade populacional e de estabelecimentos, e Infraestrutura**.
 
 ```{r}
+#| message: false
+#| warning: false
+
 ## Sensibilidade
 
 library(RColorBrewer)
@@ -165,11 +199,14 @@ dados_comp_geom %>%
     TRUE ~ "unknown")) %>% 
   ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
   scale_fill_brewer(palette="RdYlGn", name = "Categoria")+
-  labs(title = "Sensibilidade do Bioma")
+  labs(title = "Sensibilidade do Bioma")+
+  theme_bw()
 
 ```
 
 ```{r}
+#| message: false
+#| warning: false
 ## PCA para entender componetes da sensibiidade por categoria de risco
 
 dados_comp_geom %>% 
@@ -203,20 +240,34 @@ Os componentes da sensibilidade são praticamente ortogonais, significando que q
 
 
 ### Sensibilidade do bioma
-### Indicador temático - Mudança de uso do solo
+
+Daqui por diante as análises virão com duas representações gráficoas: 1) mapa de de PE com valores por município, podendo ser valores brutos ou categóricos (categorias Adapta Brasil) e 2) Gráfico mostrando valores médios e variação por região de desenvolvimento socioeconômico (RDS).
 
 ```{r}
+#| message: false
+#| warning: false
 ## RDS Mapa
+col.map<-c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928')
 
-dados_comp_geom %>% 
-  filter(code_muni==2612471)
-
-dados_comp_geom %>% 
+geom_rds %>% 
   ggplot()+geom_sf(aes(fill=rds))+
-  theme(legend.position = "top")->rds_map
+  scale_fill_manual(values= col.map)+
+  geom_sf_label(aes(label = rds))+
+  theme_bw()+
+  theme(legend.position = "none")+
+  xlab("")+ylab("")->rds_map
 rds_map
 
+```
+Essas são as RDS de Pernambuco
 
+### Indicador temático - Mudança de uso do solo
+
+Indicador composto por 4 variáveis: 1-Uso de Agrotóxicos; 2- Estabelecimentos com agricultura familiar; 3- Estabalecimentos com práticas sustentáveis e 4- Frequência de focos do fogo
+
+```{r}
+#| message: false
+#| warning: false
 dados_comp_geom %>% 
   mutate(categ=case_when(
     s_luc_2017 <0.2 ~ "Muito Baixo",
@@ -227,8 +278,8 @@ dados_comp_geom %>%
   arrange(desc(s_luc_2017)) %>% 
   mutate(categ = fct_reorder(categ, desc(s_luc_2017))) %>%
   ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
-  scale_fill_brewer(palette="RdYlGn", name = "Categoria")+
-  labs(title = "Mudança do Uso de Solo")->luc_map
+  scale_fill_brewer(palette="RdYlGn", name = "")+theme_bw()+theme(legend.position = "bottom")+
+  labs(title = "Sensibilidade à Mudanças no Uso de Solo")->luc_map
 luc_map
 
 ## Análise por RDS
@@ -247,54 +298,81 @@ dados_comp_geom %>%
   geom_point(size = 4, stat = "summary", fun = mean, shape = 1) +
   #geom_errorbar(aes(ymin=media-sd, ymax=media+sd), width=.5,
   #               position=position_dodge(0.05))+
-  labs(x= "Região de Desenvolvimento Socioeconômico", y="Sensibilidade à Mudanças no Uso de Solo")+
+  labs(x= "Região de Desenvolvimento \n Socioeconômico", y="Sensibilidade à Mudanças no Uso de Solo")+
   geom_hline(yintercept = mean(dados_comp_geom$s_luc_2017), col = "red", linetype="dashed")+
-  theme_bw()->luc_graph
+  theme_bw()+coord_flip()->luc_graph
 luc_graph
 
-cowplot::plot_grid(luc_map, rds_map, luc_graph, ncol=2, nrow = 2)
+plot_grid(luc_map, luc_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels = c("a","b"))
 
   
 ```
 
+**Conclusão**: Há um gradiente de sensibiliadde á mudança no uso de solo que aumenta em direção ao oeste, particularmente nas RD de SFR e ARP (valores acima da média para o estado). Por outro lado, as RD de AGM e AGC e AGM (Agreste), possuem menor vulnerabilidade a essas mudanças.
 
-## Correlações entre índices que compõem Vulnerabilidade
+### Indicadores individuais - Mudança de uso do solo
+
 ```{r}
 
-library(corrplot)
-
 dados_comp_geom %>% 
-  as_tibble() %>% 
-  select(sp_count, vuln:v_cap & -geom)->cor_vuln
-
-M<-cor(cor_vuln)
-corrplot(M, method="number",type = 'lower', diag = FALSE)
+  select(starts_with("sl"), rds) %>% 
+  pivot_longer(cols=starts_with("sl"), names_to="indic", values_to="value") %>% 
+  ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.5)+
+  scale_fill_manual(values= col.map)+
+  scale_color_manual(values= col.map)+
+  facet_wrap(.~rds)+
+  theme_bw()+theme(legend.position = "top")
+  
 
 
 ```
 
-## Valores médios de V=S-C+E
+
+
+## Valores médios de Vulnerabilidae pro RDS 
+
+$$
+ Vulnerabilidade = Sensibilidade+Exposição-Capacidade adaptativa
+$$
+
+Grau de suscetibilidade do bioma a uma determinada ameaça climática. A vulnerabilidade refere-se às características que um determinado ecossistema possui que refletem à suscetibilidade dele em relação às variações climáticas que podem afetar, direta ou indiretamente, a integridade do bioma. A vulnerabilidade está vinculada a situação de sensibilidade e capacidade adaptativa desse sistema, ou seja, se baseia em fatores conjunturais existentes antes do impacto climático. (Fonte: Adapta Brasil)
 
 ```{r}
-
+#| message: false
+#| warning: false
 ## Todos os sub-índices
 
 dados_comp_geom %>% 
   as_tibble() %>%
-  select(rds, vuln, sensib, v_cap, expos ) %>% 
+  select(rds, sensib, s_cap, expos ) %>% 
   pivot_longer(!rds, names_to = "indic") %>%
   group_by(rds, indic) %>% 
   summarise_if(is.numeric, list(mean, sd)) %>% 
   ggplot(aes(rds,fn1, color=indic))+
   geom_point(size=3,position=position_dodge(width=0.7))+
-  scale_color_discrete(name= "",labels=c("Exposição", "Sensibilidade", "Capacidade Adaptativa", "Vulnerabilidade"))+
+  scale_color_discrete(name= "",labels=c("Exposição", "Sensibilidade", "Capacidade Adaptativa"))+
   geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2),position=position_dodge(width=0.7))+
   coord_flip()+
+  theme_bw()+
   theme(legend.position = "top")+
   labs(y="Valor do Índice", x="Região de Desenvolvimento Socioeconômico")->A
 
 A
+```
 
+Nota-se aqui vários padrões:
+
+1) Exposição é bastante variável entre e dentro das RDS, sugerindo que os municípios possuem contextos muito distintos que aumentam ou diminuem sua exposição ao risco climático
+
+2) Sensibidade possui menor variação entre RDS mas algumas delas são compostas por municípios muito discrepantes (p.ex. MET e MLS )
+
+3) A capacidade adapttiva é bastente uniforme entre as RDS com menor variação entre e dentro dos grupos, provavelmente indicando poucas variações nos indicadores individuais.
+
+## Risco Climático
+
+```{r}
+#| message: false
+#| warning: false
 ## Risco climático atual e projetado
 
 dados_comp_geom %>% 
