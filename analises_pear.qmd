@@ -401,7 +401,82 @@ plot_grid(csol_grid, hist_muc_indic, ncol=2, align="vh", rel_widths = c(1,1),lab
 
 
 ```
-**Conclusão**: Com base nos indicadores individuais de **Cobertura do Solo** podemos verificar que praticamente toda a zona seca do estado possui pastagens degradadas. Por outro lado, o passivo ambiental é geralmente baixo, sugerindo que a maior parte dos municípios possui RL e APP conservadas (Será?). O que mais diferencia os municípios é o desmatamento, que se espalha fortemente pelo Agreste Central e Meridional (AGC e AGM) elaguns municípios do Sertão.  
+**Conclusão**: Com base nos indicadores individuais de **Cobertura do Solo** podemos verificar que praticamente toda a zona seca do estado possui pastagens degradadas. Por outro lado, o passivo ambiental é geralmente baixo, sugerindo que a maior parte dos municípios possui RL e APP conservadas (Será?). O que mais diferencia os municípios é o desmatamento, que se espalha fortemente pelo Agreste Central e Meridional (AGC e AGM) elaguns municípios do Sertão. 
+
+### Indicador temático - Densidade populacional e de estabelecimentos
+
+Indicador composto por 2 variáveis: 1-População humana; 2- Densidade de estabelecimentos agropecuária
+
+```{r}
+#| message: false
+#| warning: false
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_dens_pop_faz <0.2 ~ "Muito Baixo",
+    s_dens_pop_faz >=0.2 & s_dens_pop_faz < 0.4 ~ "Baixo",
+    s_dens_pop_faz >=0.4 & s_dens_pop_faz < 0.6 ~ "Médio",
+    s_dens_pop_faz >=0.6 & s_dens_pop_faz < 0.8 ~ "Alto",
+    s_dens_pop_faz >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_dens_pop_faz)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_dens_pop_faz))) %>%
+  ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
+  scale_fill_brewer(palette="RdYlGn", name = "")+theme_bw()+theme(legend.position = "bottom")+
+  labs(title = "Sensibilidade à Desidade Populacional e de Estabelecimentos")->s_dens_map
+s_dens_map
+
+## Análise por RDS
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_dens_pop_faz <0.2 ~ "Muito Baixo",
+    s_dens_pop_faz >=0.2 & s_dens_pop_faz < 0.4 ~ "Baixo",
+    s_dens_pop_faz >=0.4 & s_dens_pop_faz < 0.6 ~ "Médio",
+    s_dens_pop_faz >=0.6 & s_dens_pop_faz < 0.8 ~ "Alto",
+    s_dens_pop_faz >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_dens_pop_faz)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_dens_pop_faz))) %>% 
+  ggplot(aes(rds,s_dens_pop_faz))+
+  geom_jitter(size=1)+
+  geom_errorbar(stat = "summary", fun.data = mean_cl_boot, width = 0.4)+
+  geom_point(size = 4, stat = "summary", fun = mean, shape = 1) +
+  #geom_errorbar(aes(ymin=media-sd, ymax=media+sd), width=.5,
+  #               position=position_dodge(0.05))+
+  labs(x= "Região de Desenvolvimento \n Socioeconômico", y="Sensibilidade à Desidade Populacional")+
+  geom_hline(yintercept = mean(dados_comp_geom$s_dens_pop_faz), col = "red", linetype="dashed")+
+  theme_bw()+coord_flip()->s_dens_graph
+s_dens_graph
+
+plot_grid(s_dens_map, s_dens_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels = c("a","b"))->s_dens_grid
+s_dens_grid
+
+  
+```
+
+**Conclusão**: 
+
+### Indicadores individuais - Densidade Populacional
+
+```{r}
+
+dados_comp_geom %>% 
+  as_tibble() %>% 
+  select(sd_popul:sd_fazend, rds) %>% 
+  rename("Densidade Populacional"="sd_popul","Densidade de Estabelecimentos Rurais"="sd_fazend") %>% 
+  pivot_longer(cols=1:2, names_to="indic", values_to="value") %>% 
+  ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
+  scale_fill_brewer(palette="Spectral")+
+  scale_color_brewer(palette="Spectral")+
+  facet_wrap(.~rds)+
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_muc_indic
+
+hist_muc_indic
+
+plot_grid(s_dens_grid, hist_muc_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
+
+
+```
+**Conclusão**: 
+
+
 
 ## Valores médios de Vulnerabilidae pro RDS 
 
