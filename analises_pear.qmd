@@ -22,6 +22,7 @@ library(viridis)
 library(sfhotspot)
 library(units)
 library(lwgeom) # otimizar junção dos grids
+library(plotly)
 
 data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies via GBIF
 
@@ -89,7 +90,7 @@ st_crs(sp_coord) # SIRGAS 2000
 st_crs(muni_pe)# SIRGAS 2000 As duas OK
 
 sp_coord$geometry # 262.332 pontos válidos
-muni_pe$geom # 185 municípios
+muni_pe$geom # 184 municípios
 
 sp_counts_mun <- hotspot_count(sp_coord, grid = muni_pe) # 12,908 point is outside the area covered by the supplied polygons. Imprecisão dos datums?
 
@@ -144,7 +145,9 @@ sp_counts_mun %>%
 ggplot()+
   geom_sf(data=sp_counts_mun, aes(fill=log(n+1), show.legend = TRUE)) + 
   scale_fill_viridis(name="")+
-  labs(title = "Número de registros de espécies por km²")
+  labs(title = "Número de registros de espécies por km²")->map_sp_area
+map_sp_area
+
 
 
 ```
@@ -156,16 +159,17 @@ Dados provenientes do Adapta Brasil
 ```{r}
 #| message: false
 #| warning: false
+
+
 dados_comp_geom<-left_join(muni_pe[,c(1,8)],adapta_pe, by="code_muni")
 
-dados_comp_geom %>% 
-  st_transform(., crs=4674)
+
 
 dados_comp_geom %>% 
   group_by(rds) %>%
   summarise(across(geom, ~ st_combine(.)), .groups = "keep")->geom_rds # Funde bases de forma que as categorias de RDS são incluídas numa única base
 
-# ggplot(data=geom_rds)+geom_sf(aes(fill=rds)) # só checando se está correto. OK
+ggplot(data=geom_rds)+geom_sf(aes(fill=rds)) # só checando se está correto. OK
 
 centroids_rds <- geom_rds %>%
   st_make_valid() %>% 
@@ -189,6 +193,8 @@ Grau de alteração potencial do estado que o ecossistema pode sofrer, direta ou
 ## Sensibilidade
 
 library(RColorBrewer)
+cores_fixas <- c("Muito Baixo" = "#02c650", "Baixo" = "#a9de00", "Médio" = "#ffcd00", "Alto" = "#ff8300", "Muito Alto" = "#f40000")
+
 dados_comp_geom %>% 
   mutate(categ=case_when(
     sensib <0.2 ~ "Muito Baixo",
@@ -197,10 +203,12 @@ dados_comp_geom %>%
     sensib >=0.6 & sensib < 0.8 ~ "Alto",
     sensib >=0.8 ~ "Muito Alto",
     TRUE ~ "unknown")) %>% 
+  mutate(categ=fct_reorder(categ,sensib)) %>% 
   ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
-  scale_fill_brewer(palette="RdYlGn", name = "Categoria")+
+  scale_fill_manual(values =cores_fixas, name = "Categoria")+
   labs(title = "Sensibilidade do Bioma")+
-  theme_bw()
+  theme_bw()->sensib_map
+sensib_map
 
 ```
 
@@ -218,6 +226,7 @@ dados_comp_geom %>%
     sensib >=0.6 & sensib < 0.8 ~ "Alto",
     sensib >=0.8 ~ "Muito Alto",
     TRUE ~ "unknown")) %>% 
+  mutate(categ=fct_reorder(categ,sensib)) %>%
   select(starts_with("s_")|categ |rds)-> dados_sensib
   pca_sensib<-prcomp(dados_sensib[,-c(5,6,7)], scale = TRUE) 
   summary(pca_sensib)
@@ -235,6 +244,7 @@ pca_data_sensib %>%
   stat_ellipse(geom="polygon", level=0.95, alpha=0.1) #adding a stat
 
 ```
+
 #### Resumo da análise de sensibilidade
 Os componentes da sensibilidade são praticamente ortogonais, significando que qualquer redução na dimensionalidade é prejudicial à interpretação. O primeiro PC é o úico com valor > 1 mas os PCs 2 e 3 tem valores muito próximos de 1. Portanto, o melhor é proceder para uma análise dos componentes do índice de sensibilidade de forma separada e isolada.
 
@@ -259,7 +269,7 @@ geom_rds %>%
 rds_map
 
 ```
-Essas são as RDS de Pernambuco
+Essas são as RDs de Pernambuco
 
 ### Indicador temático - Mudança e uso do solo
 
@@ -278,7 +288,7 @@ dados_comp_geom %>%
   arrange(desc(s_luc_2017)) %>% 
   mutate(categ = fct_reorder(categ, desc(s_luc_2017))) %>%
   ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
-  scale_fill_brewer(palette="RdYlGn", name = "")+theme_bw()+theme(legend.position = "bottom")+
+  scale_fill_manual(values=cores_fixas, name = "")+theme_bw()+theme(legend.position = "bottom")+
   labs(title = "Sensibilidade à Mudanças no Uso de Solo")->luc_map
 luc_map
 
@@ -317,8 +327,8 @@ plot_grid(luc_map, luc_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels =
 dados_comp_geom %>% 
   as_tibble() %>% 
   select(starts_with("sl"), rds) %>% 
-  rename("Uso de Agrotóxicos"="sl_agrotox","Ausência de Agricultura Familiar"="sl_agr_fam", "Ausência de Práticas Sustentáveis"="sl_prat_sust", "Risco de Fogo"="sl_fogo") %>% 
-  pivot_longer(cols=1:4, names_to="indic", values_to="value") %>% 
+  rename("Uso de Agrotóxicos"="sl_agrotox","Ausência de Agricultura Familiar"="sl_agr_fam", "Ausência de Práticas Sustentáveis"="sl_prat_sust", "Risco de Fogo"="sl_fogo") %>%
+  pivot_longer(cols=!rds, names_to="indic", values_to="value") %>%
   ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
   scale_fill_brewer(palette="Spectral")+
   scale_color_brewer(palette="Spectral")+
@@ -347,7 +357,7 @@ dados_comp_geom %>%
   arrange(desc(s_csol_2017)) %>% 
   mutate(categ = fct_reorder(categ, desc(s_csol_2017))) %>%
   ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
-  scale_fill_brewer(palette="RdYlGn", name = "")+theme_bw()+theme(legend.position = "bottom")+
+  scale_fill_manual(values=cores_fixas, name = "")+theme_bw()+theme(legend.position = "bottom")+
   labs(title = "Sensibilidade Associada à Cobertura do Solo")->csol_map
 csol_map
 
@@ -420,7 +430,7 @@ dados_comp_geom %>%
   arrange(desc(s_dens_pop_faz)) %>% 
   mutate(categ = fct_reorder(categ, desc(s_dens_pop_faz))) %>%
   ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
-  scale_fill_brewer(palette="RdYlGn", name = "")+theme_bw()+theme(legend.position = "bottom")+
+  scale_fill_manual(values=cores_fixas, name = "")+theme_bw()+theme(legend.position = "bottom")+
   labs(title = "Sensibilidade à Desidade Populacional e de Estabelecimentos")->s_dens_map
 s_dens_map
 
@@ -477,8 +487,234 @@ plot_grid(s_dens_grid, hist_muc_indic, ncol=2, align="vh", rel_widths = c(1,1),l
 **Conclusão**: 
 
 
+### Indicador temático - Infraestrutura
 
-## Valores médios de Vulnerabilidae pro RDS 
+Indicador composto por 2 variáveis: 1- Hidroelétricas e 2 - Mineração
+
+```{r}
+#| message: false
+#| warning: false
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_infra_2017 <0.2 ~ "Muito Baixo",
+    s_infra_2017 >=0.2 & s_infra_2017 < 0.4 ~ "Baixo",
+    s_infra_2017 >=0.4 & s_infra_2017 < 0.6 ~ "Médio",
+    s_infra_2017 >=0.6 & s_infra_2017 < 0.8 ~ "Alto",
+    s_infra_2017 >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_infra_2017)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_infra_2017))) %>%
+  ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
+  scale_fill_manual(values=cores_fixas, name = "")+theme_bw()+theme(legend.position = "bottom")+
+  labs(title = "Sensibilidade à Infraestrutura")->s_infra_map
+s_infra_map
+
+## Análise por RDS
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_infra_2017 <0.2 ~ "Muito Baixo",
+    s_infra_2017 >=0.2 & s_infra_2017 < 0.4 ~ "Baixo",
+    s_infra_2017 >=0.4 & s_infra_2017 < 0.6 ~ "Médio",
+    s_infra_2017 >=0.6 & s_infra_2017 < 0.8 ~ "Alto",
+    s_infra_2017 >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_infra_2017)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_infra_2017))) %>% 
+  ggplot(aes(rds,s_infra_2017))+
+  geom_jitter(size=1)+
+  geom_errorbar(stat = "summary", fun.data = mean_cl_boot, width = 0.4)+
+  geom_point(size = 4, stat = "summary", fun = mean, shape = 1) +
+  #geom_errorbar(aes(ymin=media-sd, ymax=media+sd), width=.5,
+  #               position=position_dodge(0.05))+
+  labs(x= "Região de Desenvolvimento \n Socioeconômico", y="Sensibilidade à Infraestrutura")+
+  geom_hline(yintercept = mean(dados_comp_geom$s_infra_2017), col = "red", linetype="dashed")+
+  theme_bw()+coord_flip()->s_infra_graph
+s_infra_graph
+
+plot_grid(s_infra_map, s_infra_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels = c("a","b"))->s_infra_grid
+s_infra_grid
+
+  
+```
+
+**Conclusão**: 
+
+### Indicadores individuais - Densidade Populacional
+
+```{r}
+
+dados_comp_geom %>% 
+  as_tibble() %>% 
+  select(si_rodov:si_hidro, rds) %>% 
+  rename("Densidade de Rodovias"="si_rodov","Presença de Hidroelétricas"="si_hidro") %>% 
+  pivot_longer(cols=1:2, names_to="indic", values_to="value") %>% 
+  ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
+  scale_fill_brewer(palette="Spectral")+
+  scale_color_brewer(palette="Spectral")+
+  facet_wrap(.~rds)+
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_infra_indic
+
+hist_infra_indic
+
+plot_grid(s_infra_grid, hist_infra_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
+
+
+```
+**Conclusão**: 
+
+# Capacidade Adaptativa
+
+Capacidade do ecossistema de se preparar e se ajustar às alterações climáticas ou aos danos climáticos potenciais para a integridade do bioma, principalmente para diminuir os impactos negativos, aproveitar as oportunidades ou responder às consequências. O Índice de Capacidade Adaptativa é composto pelo indicador temático: Instrumentos para conservação da biodiversidade.
+
+
+Indicador composto por 2 variáveis: 1- Orientação para UC e 2 - UCs
+
+```{r}
+#| message: false
+#| warning: false
+
+cores_fixas_rev <- c("Muito Baixo" = "#f40000", "Baixo" ="#ff8300", "Médio" = "#ffcd00", "Alto" = "#a9de00", "Muito Alto" ="#02c650" )
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_cap <0.2 ~ "Muito Baixo",
+    s_cap >=0.2 & s_cap < 0.4 ~ "Baixo",
+    s_cap >=0.4 & s_cap < 0.6 ~ "Médio",
+    s_cap >=0.6 & s_cap < 0.8 ~ "Alto",
+    s_cap >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_cap)) %>% 
+  #mutate(categ = fct_reorder(categ, desc(s_cap))) %>%
+  ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
+  scale_fill_manual(values=cores_fixas_rev, name = "")+theme_bw()+theme(legend.position = "bottom")+
+  labs(title = "Capacidade Adaptativa")->s_cap_map
+s_cap_map
+
+## Análise por RDS
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    s_cap <0.2 ~ "Muito Baixo",
+    s_cap >=0.2 & s_cap < 0.4 ~ "Baixo",
+    s_cap >=0.4 & s_cap < 0.6 ~ "Médio",
+    s_cap >=0.6 & s_cap < 0.8 ~ "Alto",
+    s_cap >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(s_cap)) %>% 
+  mutate(categ = fct_reorder(categ, desc(s_cap))) %>% 
+  ggplot(aes(rds,s_cap))+
+  geom_jitter(size=1)+
+  geom_errorbar(stat = "summary", fun.data = mean_cl_boot, width = 0.4)+
+  geom_point(size = 4, stat = "summary", fun = mean, shape = 1) +
+  #geom_errorbar(aes(ymin=media-sd, ymax=media+sd), width=.5,
+  #               position=position_dodge(0.05))+
+  labs(x= "Região de Desenvolvimento \n Socioeconômico", y="Capacidade Adaptativa")+
+  geom_hline(yintercept = mean(dados_comp_geom$s_cap), col = "red", linetype="dashed")+
+  theme_bw()+coord_flip()->s_cap_graph
+s_cap_graph
+
+plot_grid(s_cap_map, s_cap_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels = c("a","b"))->s_cap_grid
+s_cap_grid
+
+  
+```
+
+**Conclusão**: Poucas UCs e de baixa implementação (falta de comitê gestor) não ajudam na capacidade adaptativa dos bioma frente às mudanças climáticas.
+
+### Indicadores individuais - Capacidade Adaptativa
+
+```{r}
+
+dados_comp_geom %>% 
+  as_tibble() %>% 
+  select(sc_orient:sc_ucons, rds) %>% 
+  rename("Orientação Técnica"="sc_orient","Comitê Gestor de UCs"="sc_ucons") %>% 
+  pivot_longer(cols=1:2, names_to="indic", values_to="value") %>% 
+  ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
+  scale_fill_brewer(palette="Set1")+
+  scale_color_brewer(palette="Set1")+
+  facet_wrap(.~rds)+
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade")->hist_cap_indic
+
+hist_cap_indic
+
+plot_grid(s_cap_grid, hist_cap_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
+
+```
+**Conclusão**: A maioria dos municípios, de todas as RDs possuem baixa capacidade adaptativa e apenas a Região Metropolitana e a Mata Sul possuem alguma capacidade mais ampla, devido basicamente às UCs com comitê gestor estabelecido. 
+
+# Exposição
+
+Refere-se à presença, distribuição e proximidade de elementos que são alvo de possíveis impactos climáticos, neste caso, elementos que compõem a integridade do bioma. A exposição a uma ameaça particular pode ser determinada independentemente da vulnerabilidade. O Índice de Exposição é composto pelo indicador temático: Cobertura natural exposta.
+
+## Indicador temático - Cobertura natural exposta
+Cobertura natural exposta pode afetar a integridade do bioma, pois a maior exposição da cobertura natural pode reduzir a estrutura e funcionamento dos ecossistemas. O indicador temático Cobertura natural exposta é resultante da composição dos indicadores simples: Área protegida; Cobertura florestal ou formação natural não florestal; e Área prioritária para conservação.
+
+Refere-se à presença, distribuição e proximidade de elementos que são alvo de possíveis impactos climáticos, neste caso, elementos que compõem a integridade do bioma. A exposição a uma ameaça particular pode ser determinada independentemente da vulnerabilidade. O Índice de Exposição é composto pelo indicador temático: Cobertura natural exposta.
+
+```{r}
+#| message: false
+#| warning: false
+
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    expos <0.2 ~ "Muito Baixo",
+    expos >=0.2 & expos < 0.4 ~ "Baixo",
+    expos >=0.4 & expos < 0.6 ~ "Médio",
+    expos >=0.6 & expos < 0.8 ~ "Alto",
+    expos >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(expos)) %>% 
+  #mutate(categ = fct_reorder(categ, desc(expos))) %>%
+  ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
+  scale_fill_manual(values=cores_fixas, name = "")+theme_bw()+theme(legend.position = "bottom")+
+  labs(title = "Exposição às Mudanças Climáticas")->expos_map
+expos_map
+
+## Análise por RDS
+dados_comp_geom %>% 
+  mutate(categ=case_when(
+    expos <0.2 ~ "Muito Baixo",
+    expos >=0.2 & expos < 0.4 ~ "Baixo",
+    expos >=0.4 & expos < 0.6 ~ "Médio",
+    expos >=0.6 & expos < 0.8 ~ "Alto",
+    expos >=0.8 ~ "Muito Alto")) %>%
+  arrange(desc(expos)) %>% 
+  mutate(categ = fct_reorder(categ, desc(expos))) %>% 
+  ggplot(aes(rds,expos))+
+  geom_jitter(size=1)+
+  geom_errorbar(stat = "summary", fun.data = mean_cl_boot, width = 0.4)+
+  geom_point(size = 4, stat = "summary", fun = mean, shape = 1) +
+  #geom_errorbar(aes(ymin=media-sd, ymax=media+sd), width=.5,
+  #               position=position_dodge(0.05))+
+  labs(x= "Região de Desenvolvimento \n Socioeconômico", y="Exposição às Mudanças Climáticas")+
+  geom_hline(yintercept = mean(dados_comp_geom$expos), col = "red", linetype="dashed")+
+  theme_bw()+coord_flip()->expos_graph
+expos_graph
+
+plot_grid(expos_map, expos_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels = c("a","b"))->expos_grid
+expos_grid
+
+  
+```
+
+**Conclusão**: Poucas UCs e de baixa implementação (falta de comitê gestor) não ajudam na capacidade adaptativa dos bioma frente às mudanças climáticas.
+
+### Indicadores individuais - Exposição
+
+```{r}
+
+dados_comp_geom %>% 
+  as_tibble() %>% 
+  select(e_cobnat:e_priocons, rds) %>% 
+  rename("Vegetação remanescente"="e_cobnat","Proporção em UCs"="e_areaprot", "Proporção de áreas prioritárias"="e_priocons") %>% 
+  pivot_longer(cols=1:3, names_to="indic", values_to="value") %>% 
+  ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
+  scale_fill_brewer(palette="Set1")+
+  scale_color_brewer(palette="Set1")+
+  facet_wrap(.~rds)+
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade")->hist_exp_indic
+
+hist_exp_indic
+
+plot_grid(expos_grid, hist_exp_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
+
+```
+
+# Valores médios de Vulnerabilidae pro RDS 
 
 $$
  Vulnerabilidade = Sensibilidade+Exposição-Capacidade adaptativa
@@ -535,6 +771,7 @@ dados_comp_geom %>%
   scale_color_discrete(name= "",labels=c("Risco Atual", "Risco SWL 1.5", "Risco SWL 2.0"))+
   geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2),position=position_dodge(width=0.7))+
   coord_flip()+
+  theme_bw()+
   theme(legend.position = "top")+
   labs(y="Risco Climático", x="Região de Desenvolvimento Socioeconômico")->B
 B
@@ -554,6 +791,7 @@ dados_comp_geom %>%
   geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2),position=position_dodge(width=0.7))+
   coord_flip()+
   theme(legend.position = "top")+
+  theme_bw()+
   labs(y="Ameaça à Integridade do Bioma", x="Região de Desenvolvimento Socioeconômico")->C
 
 C
