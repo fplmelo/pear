@@ -109,6 +109,25 @@ sp_counts_mun %>%
 
 ```
 
+## Dados descritivos para biodiversidade
+
+```{r}
+sp_coord %>% 
+  group_by(kingdom) %>% 
+  summarise(n())
+
+sp_counts_mun %>% 
+  select(name_muni, sp_per_area, n) %>% 
+  filter(n<100) %>% 
+  arrange(n)
+
+sp_counts_mun %>% 
+  select(name_muni, sp_per_area) %>% 
+  #filter(n>1355) %>% 
+  arrange(sp_per_area)
+  
+```
+
 ## Esforço de coleta por RDS de PE
 
 Temos, no geral um esforço de coleta baixo para PE em geral, com poucos registros por município e a região metropolitana (MET) é a mais bem amostrada. Destaque para o SFR, pouquíssimo amostrada na média.
@@ -313,7 +332,9 @@ dados_comp_geom %>%
   theme_bw()+coord_flip()->luc_graph
 luc_graph
 
-plot_grid(luc_map, luc_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels = c("a","b"))
+plot_grid(luc_map, luc_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels = c("a","b"))->grid_map_graph
+
+grid_map_graph
 
   
 ```
@@ -327,15 +348,19 @@ plot_grid(luc_map, luc_graph, ncol=1, align="v", rel_widths = c(1,0.6), labels =
 dados_comp_geom %>% 
   as_tibble() %>% 
   select(starts_with("sl"), rds) %>% 
-  rename("Uso de Agrotóxicos"="sl_agrotox","Ausência de Agricultura Familiar"="sl_agr_fam", "Ausência de Práticas Sustentáveis"="sl_prat_sust", "Risco de Fogo"="sl_fogo") %>%
+  rename("Uso de\nAgrotóxicos"="sl_agrotox","Ausência de\n Agricultura\nFamiliar"="sl_agr_fam", "Ausência de Práticas \nSustentáveis"="sl_prat_sust", "Risco de Fogo"="sl_fogo") %>%
   pivot_longer(cols=!rds, names_to="indic", values_to="value") %>%
   ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
   scale_fill_brewer(palette="Spectral")+
   scale_color_brewer(palette="Spectral")+
   facet_wrap(.~rds)+
-  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_luc_indic
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank(), legend.key.size = unit(0.5, "cm") )+
+  labs(x="valor do índice",y="densidade") ->hist_luc_indic
 
 hist_luc_indic
+
+plot_grid(grid_map_graph, hist_luc_indic, ncol=2, align="vh", rel_widths = c(1,1), labels = c(" ","c"))
+
 
 ```
 **Conclusão**: Com base nos indicadores individuais de **Mudança e Uso de Solo** é possível perceber que praticamente todos os municípios e RDs de PE não possuem práticas sustentáveis de agricultura, obtendo valores altos de sensibilidade e gerandobaixa distintção entre entidades (município ou RD). As RD do Agreste têm baixo uso de agrotóxico e baixo risco de fogo. Os altos valores de sensibilidade a mudança e uso de solo estão concentrados nas RDs de SFR, SCP e ARP, onde há municípios com maior sensisbilidade à todos os indicadores individuais.
@@ -358,7 +383,7 @@ dados_comp_geom %>%
   mutate(categ = fct_reorder(categ, desc(s_csol_2017))) %>%
   ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
   scale_fill_manual(values=cores_fixas, name = "")+theme_bw()+theme(legend.position = "bottom")+
-  labs(title = "Sensibilidade Associada à Cobertura do Solo")->csol_map
+  labs(title = "Sensibilidade do bioma à Cobertura do Solo")->csol_map
 csol_map
 
 ## Análise por RDS
@@ -388,7 +413,8 @@ csol_grid
   
 ```
 
-**Conclusão**: Não há um padrão muito claro espacila para este indicador, com excessão de alguns núcelos de alta sensibilidade espalhados pelo estado e outros de média sensibilidade. Destaque para o IPA. 
+**Conclusão**: Não há um padrão muito claro espacial para este indicador, com exceção de alguns núcleos de alta sensibilidade espalhados pelo estado e outros de média sensibilidade. Destaque para o IPA. 
+
 
 ### Indicadores individuais - Cobertura do solo
 
@@ -403,11 +429,11 @@ dados_comp_geom %>%
   scale_fill_brewer(palette="Spectral")+
   scale_color_brewer(palette="Spectral")+
   facet_wrap(.~rds)+
-  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_muc_indic
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_cob_indic
 
-hist_muc_indic
+hist_cob_indic
 
-plot_grid(csol_grid, hist_muc_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
+plot_grid(csol_grid, hist_cob_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
 
 
 ```
@@ -431,7 +457,7 @@ dados_comp_geom %>%
   mutate(categ = fct_reorder(categ, desc(s_dens_pop_faz))) %>%
   ggplot()+geom_sf(aes(fill=categ), show.legend = TRUE)+
   scale_fill_manual(values=cores_fixas, name = "")+theme_bw()+theme(legend.position = "bottom")+
-  labs(title = "Sensibilidade à Desidade Populacional e de Estabelecimentos")->s_dens_map
+  labs(title = "Sensibilidade à Desidade Populacional e \nde Estabelecimentos Rurais")->s_dens_map
 s_dens_map
 
 ## Análise por RDS
@@ -470,17 +496,17 @@ s_dens_grid
 dados_comp_geom %>% 
   as_tibble() %>% 
   select(sd_popul:sd_fazend, rds) %>% 
-  rename("Densidade Populacional"="sd_popul","Densidade de Estabelecimentos Rurais"="sd_fazend") %>% 
+  rename("Densidade Populacional"="sd_popul","Densidade de \nEstabelecimentos Rurais"="sd_fazend") %>% 
   pivot_longer(cols=1:2, names_to="indic", values_to="value") %>% 
   ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
-  scale_fill_brewer(palette="Spectral")+
-  scale_color_brewer(palette="Spectral")+
+  scale_fill_brewer(palette="Set1")+
+  scale_color_brewer(palette="Set1")+
   facet_wrap(.~rds)+
-  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_muc_indic
+  theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_dens_indic
 
-hist_muc_indic
+hist_dens_indic
 
-plot_grid(s_dens_grid, hist_muc_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
+plot_grid(s_dens_grid, hist_dens_indic, ncol=2, align="vh", rel_widths = c(1,1),labels = c("","c"))
 
 
 ```
@@ -544,11 +570,11 @@ s_infra_grid
 dados_comp_geom %>% 
   as_tibble() %>% 
   select(si_rodov:si_hidro, rds) %>% 
-  rename("Densidade de Rodovias"="si_rodov","Presença de Hidroelétricas"="si_hidro") %>% 
+  rename("Densidade de Rodovias"="si_rodov","Promimidade à Hidroelétricas"="si_hidro") %>% 
   pivot_longer(cols=1:2, names_to="indic", values_to="value") %>% 
   ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
-  scale_fill_brewer(palette="Spectral")+
-  scale_color_brewer(palette="Spectral")+
+  scale_fill_brewer(palette="Set1")+
+  scale_color_brewer(palette="Set1")+
   facet_wrap(.~rds)+
   theme_bw()+theme(legend.position = "top", legend.title = element_blank())+labs(x="valor do índice",y="densidade") ->hist_infra_indic
 
@@ -703,6 +729,7 @@ dados_comp_geom %>%
   rename("Vegetação remanescente"="e_cobnat","Proporção em UCs"="e_areaprot", "Proporção de áreas prioritárias"="e_priocons") %>% 
   pivot_longer(cols=1:3, names_to="indic", values_to="value") %>% 
   ggplot()+geom_density(aes(value, colour = indic, fill=indic), alpha=0.6)+
+  scale_y_continuous(limits = c(0, 10))+
   scale_fill_brewer(palette="Set1")+
   scale_color_brewer(palette="Set1")+
   facet_wrap(.~rds)+
@@ -753,12 +780,12 @@ Nota-se aqui vários padrões:
 
 3) A capacidade adapttiva é bastente uniforme entre as RDS com menor variação entre e dentro dos grupos, provavelmente indicando poucas variações nos indicadores individuais.
 
-## Risco Climático
+# Risco Climático
+## Risco climático atual e projetado
 
 ```{r}
 #| message: false
 #| warning: false
-## Risco climático atual e projetado
 
 dados_comp_geom %>% 
   as_tibble() %>%
@@ -775,29 +802,34 @@ dados_comp_geom %>%
   theme(legend.position = "top")+
   labs(y="Risco Climático", x="Região de Desenvolvimento Socioeconômico")->B
 B
+```
 
-## Ameaça à Integridade do Bioma
+# Ameaça à Integridade do Bioma
+
+```{r}
 
 
 dados_comp_geom %>% 
   as_tibble() %>%
   select(rds,ameaca_atual:ameaca_SWL2.0) %>% 
-  pivot_longer(!rds, names_to = "risco") %>%
-  group_by(rds, risco) %>% 
+  rename("Ameaça Atual"="ameaca_atual","Ameaça SWL 1.5"="ameaca_SWL1.5", "Ameaça SWL 2.0"="ameaca_SWL2.0") %>% 
+  pivot_longer(!rds, names_to = "ameaca") %>%
+  group_by(rds, ameaca) %>%
+  drop_na() %>% 
   summarise_if(is.numeric, list(mean, sd)) %>% 
-  ggplot(aes(rds,fn1, group=risco, color=risco))+
+  ggplot(aes(rds,fn1, group=ameaca, color=ameaca))+
   geom_point(size=3,position=position_dodge(width=0.7))+
-  scale_color_discrete(name= "",labels=c("Ameaça Atual", "Ameaça SWL 1.5", "Ameaça SWL 2.0"))+
+  scale_color_discrete(name= "")+
   geom_pointrange(aes(ymin=fn1-fn2, ymax=fn1+fn2),position=position_dodge(width=0.7))+
   coord_flip()+
-  theme(legend.position = "top")+
   theme_bw()+
+  theme(legend.position = "top")+
   labs(y="Ameaça à Integridade do Bioma", x="Região de Desenvolvimento Socioeconômico")->C
 
 C
 
 
-
+## Ameaça Atual
 
 ```
 
