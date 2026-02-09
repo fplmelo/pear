@@ -9,17 +9,63 @@ library(shinythemes)
 # --- CARREGAMENTO E PREPARAÇÃO DOS DADOS ---
 dados_sf <- readRDS("shiny_data.rds") %>% st_transform(4326)
 
+
+# CORREÇÃO CRÍTICA: Forçar colunas de Ameaça e Risco a serem numéricas
+colunas_analise <- c("sensib", "expos", "ameaca_atual", "risco_atual", 
+                     "am_prec_acum", "am_temp_med", "am..sazon..prep", "am.ampl_temp")
+
 medias_estado <- dados_sf %>% 
   st_drop_geometry() %>% 
   summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)))
 
-# 1. TEXTOS PARA O PANORAMA ESTADUAL (Resumo por Dimensão)
+### PADRÃO DE CORES E CATEGORIZAÇÃO ###
+  cores_fixas <- c(
+    "Muito Baixo" = "#02c650", 
+    "Baixo"       = "#a9de00", 
+    "Médio"       = "#ffcd00", 
+    "Alto"        = "#ff8300", 
+    "Muito Alto"  = "#f40000"
+  )
+
+# Função auxiliar para categorizar os dados dinamicamente
+categorizar_valor <- function(valor) {
+  case_when(
+    valor < 0.2 ~ "Muito Baixo",
+    valor >= 0.2 & valor < 0.4 ~ "Baixo",
+    valor >= 0.4 & valor < 0.6 ~ "Médio",
+    valor >= 0.6 & valor < 0.8 ~ "Alto",
+    valor >= 0.8 ~ "Muito Alto",
+    TRUE ~ "Sem dados"
+  )
+}
+
+# 1. TEXTOS PARA O PANORAMA ESTADUAL (Definições Adapta Brasil)
 textos_panorama <- list(
-  "sensib" = "A Sensibilidade em Pernambuco reflete o grau em que os sistemas biofísicos são afetados por perturbações climáticas, considerando o uso do solo, a infraestrutura e a capacidade adaptativa. No estado, observamos uma heterogeneidade marcante: enquanto a Zona da Mata apresenta alta sensibilidade devido à fragmentação da Mata Atlântica e ao uso intensivo pela cana-de-açúcar, o Semiárido lida com a fragilidade intrínseca da Caatinga e solos rasos. A média estadual é pressionada por lacunas em infraestrutura rural e assistência técnica, fatores que, se não endereçados, potencializam os danos de secas e cheias.",
-  "expos" = "A Exposição Ambiental quantifica os ativos naturais (remanescentes vegetais e áreas protegidas) que estão diretamente na linha de frente das mudanças climáticas. Em Pernambuco, a exposição é crítica nas franjas de desertificação do Sertão e nas áreas costeiras da RMR. O panorama revela que a perda de cobertura nativa reduz a proteção natural contra o aumento da temperatura. A conservação de unidades de conservação e matas ciliares surge como a principal estratégia para diminuir este índice, que hoje mostra patamares preocupantes em regiões de forte expansão agrícola e urbana.",
-  "ameaca_atual" = "A Ameaça Climática Atual sintetiza as anomalias de precipitação e temperatura que o estado já vivencia. Pernambuco enfrenta um aumento sistemático na amplitude térmica e uma maior irregularidade nos ciclos de chuva. O Sertão Central e do Araripe registram as maiores anomalias térmicas, enquanto as RDs do Agreste e Litoral sofrem com a sazonalidade extrema. Este cenário impõe um estresse hídrico permanente sobre o bioma Caatinga e sobre o sistema de abastecimento humano, configurando um estado de alerta para a segurança hídrica e alimentar.",
-  "risco_atual" = "O Risco Climático Atual é a convergência da Ameaça, Sensibilidade e Exposição. O mapa estadual revela que o risco não é uniforme; ele é exacerbado onde a fragilidade social encontra eventos climáticos extremos. RDs como o Sertão do São Francisco e a Região Metropolitana apresentam núcleos de alto risco por razões distintas (clima severo vs. densidade urbana exposta). O panorama estadual indica que a redução do risco depende menos de controlar o clima e mais de aumentar a capacidade adaptativa e restaurar serviços ecossistêmicos nas áreas mais sensíveis identificadas."
+  "sensib" = "
+  <ul>
+    <li><b>Fatores que aumentam a sensibilidade:</b> A sensibilidade biômica em Pernambuco é elevada pela pressão histórica de uso do solo, que fragiliza as características ecossistêmicas. Práticas agrícolas inadequadas, uso de agrotóxicos e queimadas degradam a microbiota e reduzem a autorregulação da vegetação. No Agreste e Sertão, pastagens degradadas aumentam a suscetibilidade da Caatinga.</li>
+    <li><b>Medidas de contenção da sensibilidade:</b> Exige a recuperação da saúde do solo e o fortalecimento da governança. A promoção da agricultura sustentável e o suporte técnico para manejo sem uso do fogo são fundamentais, assim como a criação de novas UCs para elevar a Capacidade Adaptativa.</li>
+  </ul>",
+  
+  "expos" = "
+  <ul>
+    <li><b>Fatores que aumentam a exposição:</b> Refere-se à presença e proximidade de elementos do bioma a impactos climáticos. A fragmentação dos ecossistemas e a ocupação antrópica em bordas de matas nativas criam zonas vulneráveis. A presença de infraestruturas em áreas de alta integridade biológica facilita o contato direto com ameaças externas.</li>
+    <li><b>Medidas de contenção da exposição:</b> A estratégia central deve ser o fortalecimento da conectividade ecológica. A criação de Corredores Ecológicos e a restauração de matas ciliares funcionam como escudos físicos, protegendo a integridade do bioma contra a exposição direta.</li>
+  </ul>",
+  
+  "ameaca_atual" = "
+  <ul>
+    <li><b>Fatores que aumentam a ameaça:</b> Fatores climáticos externos como anomalias de temperatura e precipitação que alteram a resiliência climática. No AdaptaBrasil, quanto menor a resiliência do nicho biômico projetada, maior o índice de ameaça. O aquecimento global (RCP 8.5) força a vegetação a operar fora de seus limites fisiológicos.</li>
+    <li><b>Medidas de contenção da ameaça:</b> Foca na preservação de refúgios climáticos e brejos de altitude para amortecer anomalias térmicas. O monitoramento de projeções futuras é essencial para antecipar a perda de resiliência e planejar a gestão territorial climática.</li>
+  </ul>",
+  
+  "risco_atual" = "
+  <ul>
+    <li><b>Fatores que aumentam o risco:</b> Resultado da convergência entre ameaça, sensibilidade e exposição. O risco aumenta onde a fragilidade social e ambiental encontra eventos climáticos extremos. Áreas com baixa capacidade adaptativa e alta dependência de recursos naturais explorados exaustivamente são as mais críticas.</li>
+    <li><b>Medidas de contenção do risco:</b> Implementação de Planos de Adaptação que priorizem a restauração de ecossistemas. A contenção exige reduzir a sensibilidade e a exposição simultaneamente, focando em investimentos nos municípios identificados como hotspots de risco.</li>
+  </ul>"
 )
+
 
 # 2. TEXTOS DIAGNÓSTICOS REGIONAIS (Acrônimas)
 textos_rd <- list(
@@ -48,40 +94,44 @@ textos_rd <- list(
   "SFR" = "A RD Sertão do São Francisco (SFR) representa um cenário complexo. Quantitativamente, mais de 55% dos municípios apresentam Risco Climático superior à média estadual. Qualitativamente, a agricultura irrigada convive com a fragilidade extrema da Caatinga de sequeiro. O aumento das temperaturas médias e a intensificação da amplitude térmica colocam a região em estado de estresse hídrico permanente. A agricultura eleva a Sensibilidade de Uso do Solo devido ao uso intensivo de insumos, superando os patamares médios estaduais. O diagnóstico aponta para a necessidade urgente de políticas de reflorestamento e manejo sustentável, garantindo que o desenvolvimento econômico não exacerbe a vulnerabilidade climática latente."
 )
 
-# 3. DICIONÁRIOS E HIERARQUIA (Mantidos conforme base original)
+# 3. DICIONÁRIOS E HIERARQUIA
 nomes_amigaveis <- c(
   "sensib" = "Sensibilidade", "expos" = "Exposição", 
   "ameaca_atual" = "Ameaça Climática Atual", "risco_atual" = "Risco Climático Atual",
   "ameaca_SWL1.5" = "Ameaça Futura (1.5°C)", "ameaca_SWL2.0" = "Ameaça Futura (2.0°C)",
   "risco_SWL1.5" = "Risco Futuro (1.5°C)", "risco_SWL2.0" = "Risco Futuro (2.0°C)",
-  "s_luc_2017" = "Mudança de Uso do Solo", "s_csol_2017" = "Cobertura do Solo",
-  "s_infra_2017" = "Infraestrutura e Serviços", "s_cap" = "Capacidade Adaptativa",
-  "e_cobexpo" = "Áreas Expostas", "e_priocons" = "Prioridade de Conservação",
+  "s_luc_2017" = "Mudança de Uso do Solo", "s_csol_2017" = "MNudança da Cobertura do Solo",
+  "s_infra_2017" = "Infraestrutura e Serviços", 
+  "s_dens_pop_faz" = "Densidade populacional e de estabelecimentos",
+  "sd_popul" = "Densidade populacional", "sd_fazend" = "Densidade de estabelecimentos agropecuários",
+  "s_cap" = "Capacidade Adaptativa",
+  "e_cobexpo" = "Áreas Expostas", "e_priocons" = "Áreas Prioritárias de Conservação",
+  "e_cobnat" = "Remanescentes Vegetais", "e_areaprot" = "Proteção Territorial",
   "sl_agrotox" = "Uso de Agrotóxicos", "sl_fogo" = "Ocorrência de Fogo", 
   "sl_agr_fam" = "Ausência de Agricultura Familiar", "sl_prat_sust" = "Ausência de Práticas Sustentáveis",
   "sc_desmat" = "Perda de Vegetação", "sc_passivo" = "Passivo Ambiental",
   "sc_pastag" = "Pastagem Degradada", "sc_miner" = "Atividade Mineradora",
   "si_rodov" = "Densidade Rodoviária", "si_hidro" = "Proximidade à Planta Higroelétrica",
-  "sc_orient" = "Orientação Técnica para Criação de UCs", "sc_ucons" = "Unidades de Conservação",
+  "sc_orient" = "Propriedades com Orientação Técnica", "sc_ucons" = "UCs com comitê gestor e plano de manejo",
   "am_prec_acum" = "Anomalia de Precipitação", "am_temp_med" = "Aumento de Temperatura",
-  "e_cobnat" = "Remanescentes Vegetais", "e_areaprot" = "Proteção Territorial"
+  "am_sazon_prep" = "Aumento de Sazonalidade da Precipitação", "am_ampl_temp"= "Aumento da Amplitude da Temperatura"
 )
 
 hierarquia <- list(
-  "Sensibilidade" = c("Mudança Uso Solo" = "s_luc_2017", "Condição do Solo" = "s_csol_2017", "Infraestrutura" = "s_infra_2017", "Capac. Adaptativa" = "s_cap"),
-  "Exposição"     = c("Cobertura Exposta" = "e_cobexpo", "Prioridade Cons." = "e_priocons"),
-  "Ameaça"        = c("Ameaça Atual" = "ameaca_atual", "Ameaça Futura (1.5°C)" = "ameaca_SWL1.5", "Ameaça Futura (2.0°C)" = "ameaca_SWL2.0"),
+  "Sensibilidade" = c("Mudança Uso Solo" = "s_luc_2017", "Cobertura do Solo" = "s_csol_2017", "Infraestrutura" = "s_infra_2017", "Capac. Adaptativa" = "s_cap"),
+  "Exposição"     = c("Cobertura Exposta" = "e_cobexpo", "Prioridade Cons." = "e_priocons", "Proteção Territorial" = "e_areaprot" ),
+  "Ameaça"        = c("Ameaça Atual" = "ameaca_atual",  "Ameaça Futura (1.5°C)" = "ameaca_SWL1.5", "Ameaça Futura (2.0°C)" = "ameaca_SWL2.0" ),
   "Risco"         = c("Risco Atual" = "risco_atual", "Risco Futuro (1.5°C)" = "risco_SWL1.5", "Risco Futuro (2.0°C)" = "risco_SWL2.0")
-)
+  )
 
 variaveis_brutas_map <- list(
   "s_luc_2017"   = c("sl_agrotox", "sl_agr_fam", "sl_prat_sust", "sl_fogo"),
   "s_csol_2017"  = c("sc_passivo", "sc_desmat", "sc_pastag", "sc_miner"),
+  "s_dens_pop_faz" = c("sd_popul","sd_fazend"),
   "s_infra_2017" = c("si_rodov", "si_hidro"),
   "s_cap"        = c("sc_orient", "sc_ucons"),
-  "e_cobexpo"    = c("e_cobexpo", "e_cobnat"),
-  "e_priocons"   = c("e_areaprot", "e_priocons"),
-  "ameaca_atual" = c("am_prec_acum", "am_temp_med"),
+  "e_cobexpo"    = c("e_areaprot", "e_priocons", "e_cobnat"),
+  "ameaca_atual" = c("am_prec_acum", "am_temp_med", "am_ampl_temp","am_sazon_prep"),
   "risco_atual"  = c("ameaca_atual", "sensib", "expos"),
   "risco_SWL1.5" = c("ameaca_SWL1.5", "sensib", "expos"),
   "risco_SWL2.0" = c("ameaca_SWL2.0", "sensib", "expos")
@@ -93,22 +143,20 @@ ui <- fluidPage(
   titlePanel("Dashboard PEAR: Vulnerabilidade e Riscos Climáticos (PE)"),
   sidebarLayout(
     sidebarPanel(
-      # O menu lateral agora tem uma condicional para a aba de Panorama
       conditionalPanel(
         condition = "input.abas_painel != 'Panorama Estadual'",
         selectInput("selecao_rd", "Região de Desenvolvimento (RD):", choices = sort(unique(dados_sf$rds))),
         selectInput("dimensao", "Dimensão de Análise:", choices = names(hierarquia)),
-        uiOutput("menu_subindice"),
-        hr()
+        uiOutput("menu_subindice")
       ),
       conditionalPanel(
         condition = "input.abas_painel == 'Panorama Estadual'",
         selectInput("dim_panorama", "Selecione a Dimensão Geral:", 
                     choices = c("Sensibilidade" = "sensib", "Exposição" = "expos", 
-                                "Ameaça Atual" = "ameaca_atual", "Risco Atual" = "risco_atual")),
-        helpText("Este mapa apresenta a situação de todo o estado para a dimensão selecionada.")
+                                "Ameaça Atual" = "ameaca_atual", "Risco Atual" = "risco_atual"))
       ),
-      helpText("Linha/Ponto vermelha indica a média de Pernambuco.")
+      hr(),
+      helpText("Mapa mostra panorama geral da RD em categorias. Gráficos abaixo mostram performance de cada município nos indicadores específicos que compõem a dimensão de análise")
     ),
     mainPanel(
       tabsetPanel(
@@ -124,7 +172,7 @@ ui <- fluidPage(
         tabPanel("Mapas e dados detalhados", br(), 
                  leafletOutput("mapa_dinamico", height = "400px"), 
                  br(), 
-                 plotOutput("plot_detalhado", height = "450px")),
+                 plotOutput("plot_detalhado", height = "800px")),
         
         tabPanel("Perfil do Município", br(), 
                  uiOutput("menu_municipios"), 
@@ -134,33 +182,49 @@ ui <- fluidPage(
   )
 )
 
-# --- SERVER ---
+# --- SERVER CORRIGIDO ---
 server <- function(input, output, session) {
   
-  # --- LÓGICA PANORAMA ESTADUAL ---
+  # 1. MAPA PANORAMA ESTADUAL (Mantido)
   output$mapa_panorama <- renderLeaflet({
     req(input$dim_panorama)
     col <- input$dim_panorama
-    pal <- colorNumeric("YlOrRd", domain = dados_sf[[col]], na.color = "transparent")
-    
-    leaflet(dados_sf) %>%
+    df_mapa <- dados_sf %>%
+      mutate(categ = factor(categorizar_valor(get(col)), levels = names(cores_fixas)))
+    pal <- colorFactor(palette = as.character(cores_fixas), domain = df_mapa$categ)
+    leaflet(df_mapa) %>%
       addProviderTiles("CartoDB.Positron") %>%
-      addPolygons(fillColor = ~pal(get(col)), weight = 1, color = "white", fillOpacity = 0.7,
-                  label = ~paste(nome, ":", round(get(col), 2))) %>%
-      addLegend(pal = pal, values = dados_sf[[col]], title = "Score", position = "bottomright")
+      addPolygons(fillColor = ~pal(categ), weight = 1, color = "white", fillOpacity = 0.8,
+                  label = ~paste(nome, "-", categ, ":", round(get(col), 2))) %>%
+      addLegend(pal = pal, values = ~categ, title = "Categoria", position = "bottomright")
   })
   
   output$texto_panorama <- renderUI({
     req(input$dim_panorama)
     tagList(
-      h3(paste("Panorama de", nomes_amigaveis[input$dim_panorama]), style = "font-weight: bold;"),
-      p(textos_panorama[[input$dim_panorama]], style = "font-size: 15px; text-align: justify;")
+      h3(paste("Panorama Estadual:", nomes_amigaveis[input$dim_panorama]), style = "font-weight: bold;"),
+      HTML(textos_panorama[[input$dim_panorama]])
     )
   })
   
-  # --- LÓGICA ORIGINAL (RD) ---
+  # 2. MAPA REGIONAL DETALHADO (Mantido)
   dados_filtrados <- reactive({ dados_sf %>% filter(rds == input$selecao_rd) })
   
+  output$mapa_dinamico <- renderLeaflet({
+    req(input$subindice)
+    col_mapa <- input$subindice
+    df_regiao <- dados_filtrados() %>%
+      mutate(categ = factor(categorizar_valor(get(col_mapa)), levels = names(cores_fixas)))
+    pal <- colorFactor(palette = as.character(cores_fixas), domain = df_regiao$categ)
+    leaflet(df_regiao) %>%
+      addProviderTiles("CartoDB.Positron") %>%
+      addPolygons(fillColor = ~pal(categ), weight = 1.5, color = "white", fillOpacity = 0.8,
+                  label = ~paste(nome, ":", round(get(col_mapa), 2))) %>%
+      addLegend(pal = pal, values = factor(names(cores_fixas), levels = names(cores_fixas)), 
+                title = "Categoria", position = "bottomright")
+  })
+  
+  # 3. TEXTO DIAGNÓSTICO (Mantido)
   output$texto_diagnostico <- renderUI({
     req(input$selecao_rd)
     resumo <- textos_rd[[input$selecao_rd]]
@@ -175,43 +239,49 @@ server <- function(input, output, session) {
     selectInput("subindice", "Indicador Específico:", choices = hierarquia[[input$dimensao]])
   })
   
-  output$mapa_dinamico <- renderLeaflet({
-    req(input$subindice)
-    col_mapa <- input$subindice
-    pal_cores <- if(grepl("ameaca|risco", col_mapa)) "Reds" else "YlOrBr"
-    pal <- colorNumeric(pal_cores, domain = dados_sf[[col_mapa]], na.color = "transparent")
-    
-    leaflet(dados_filtrados()) %>%
-      addProviderTiles("CartoDB.Positron") %>%
-      addPolygons(fillColor = ~pal(get(col_mapa)), weight = 1.5, color = "white", fillOpacity = 0.8,
-                  label = ~paste(nome, ":", round(get(col_mapa), 2))) %>%
-      addLegend(pal = pal, values = dados_sf[[col_mapa]], title = "Score", position = "bottomright")
-  })
-  
+  # --- CORREÇÃO AQUI: GRÁFICO DE BARRAS DETALHADO ---
   output$plot_detalhado <- renderPlot({
     req(input$subindice)
+    
+    # Define quais variáveis mostrar (brutas ou o índice selecionado)
     cols_alvo <- variaveis_brutas_map[[input$subindice]]
     if(is.null(cols_alvo)) cols_alvo <- input$subindice
+    
     cols_existentes <- intersect(cols_alvo, names(dados_filtrados()))
+    if(length(cols_existentes) == 0) return(NULL)
     
     df_plot <- dados_filtrados() %>%
       st_drop_geometry() %>%
       select(nome, all_of(cols_existentes)) %>%
       pivot_longer(cols = -nome, names_to = "Var", values_to = "Val") %>%
-      mutate(Var_Nome = ifelse(Var %in% names(nomes_amigaveis), nomes_amigaveis[Var], Var),
-             media_pe = as.numeric(medias_estado[Var]))
+      mutate(
+        Val = as.numeric(Val),
+        Var_Nome = ifelse(Var %in% names(nomes_amigaveis), nomes_amigaveis[Var], Var),
+        media_pe = as.numeric(medias_estado[Var]),
+        # Aqui emulamos a cor do mapa categorizando cada barra
+        categ = factor(categorizar_valor(Val), levels = names(cores_fixas))
+      )
     
     ggplot(df_plot, aes(x = reorder(nome, Val), y = Val)) +
-      geom_col(aes(fill = Var_Nome)) + 
-      geom_hline(aes(yintercept = media_pe), color = "red", linetype = "dashed", size = 1) +
+      geom_col(aes(fill = categ), width = 0.6) + 
+      # Aplica as cores manuais definidas no dicionário cores_fixas
+      scale_fill_manual(values = cores_fixas, name = "Categoria", drop = FALSE) +
+      geom_hline(aes(yintercept = media_pe), color = "black", linetype = "dashed", size = 1) +
       facet_wrap(~Var_Nome, scales = "free_x") + 
       coord_flip() +
-      labs(title = "Comparação Regional vs. Média Estadual", x = "Municípios", y = "Score") +
+      labs(title = paste("Detalhamento Regional:", nomes_amigaveis[input$subindice]),
+           subtitle = "Barras coloridas por categoria de risco/ameaça",
+           x = "Municípios", y = "Score (0 a 1)") +
       theme_minimal() + 
-      theme(legend.position = "none", axis.title = element_text(size = 14, face = "bold"),
-            strip.text = element_text(size = 13, face = "bold"))
+      theme(
+        plot.title = element_text(size = 20, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        strip.text = element_text(size = 14, face = "bold", color = "#2c3e50"),
+        legend.position = "bottom"
+      )
   })
   
+  # --- 4. PERFIL DO MUNICÍPIO (Mantido com melhoria de fonte) ---
   output$menu_municipios <- renderUI({
     municipios <- sort(unique(dados_filtrados()$nome))
     selectInput("selecao_muni", "Municípios para Comparação:", choices = municipios, multiple = TRUE, selected = municipios[1])
@@ -220,7 +290,6 @@ server <- function(input, output, session) {
   output$plot_perfil_muni <- renderPlot({
     req(input$selecao_muni)
     colunas_perfil <- c("sensib", "expos", "ameaca_atual", "risco_atual")
-    
     df_perfil <- dados_filtrados() %>%
       st_drop_geometry() %>%
       filter(nome %in% input$selecao_muni) %>%
@@ -230,17 +299,21 @@ server <- function(input, output, session) {
              media_pe = as.numeric(medias_estado[Dim]))
     
     ggplot(df_perfil, aes(x = Dim_Nome, y = Val)) +
-      geom_col(aes(fill = Dim_Nome), alpha = 0.6, width = 0.7) + 
+      geom_col(aes(fill = Dim_Nome), alpha = 0.8, width = 0.7) + 
+      scale_fill_brewer(palette = "Spectral") +
       geom_point(aes(y = media_pe, color = "Média PE"), size = 5) +
-      scale_color_manual(name = "Referência", values = c("Média PE" = "red")) +
+      scale_color_manual(name = "Referência", values = c("Média PE" = "black")) +
       facet_wrap(~nome) + 
       ylim(0, 1) +
-      scale_fill_brewer(palette = "Greys", guide = "none") +
-      labs(title = "Perfil Individual vs. Patamar de Pernambuco", x = "", y = "Score") +
+      labs(title = "Perfil Municipal vs. Patamar de Pernambuco", x = "Dimensão", y = "Score (0 a 1)") +
       theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 11),
-            strip.text = element_text(size = 14, face = "bold"),
-            legend.position = "bottom")
+      theme(
+        plot.title = element_text(size = 20, face = "bold"),
+        axis.title = element_text(size = 16, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 12, face = "bold"),
+        strip.text = element_text(size = 16, face = "bold"),
+        legend.position = "bottom"
+      )
   })
 }
 
