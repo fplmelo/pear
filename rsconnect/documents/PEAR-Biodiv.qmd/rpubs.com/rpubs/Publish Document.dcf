@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/1381366/82e7f4006a6d43cf84ea749fc04490d3
+bundleId: https://api.rpubs.com/api/v1/document/1381366/82e7f4006a6d43cf84ea749fc04490d3
+url: http://rpubs.com/fplmelo/1381366
+version: 1

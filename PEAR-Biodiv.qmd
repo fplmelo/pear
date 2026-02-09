@@ -1,0 +1,133 @@
+---
+title: "PEAR-Biodiversidade"
+author: "Felipe Melo <br> Universidade Federal de Pernmambuco"
+subtitle: ""
+format: revealjs
+editor: source
+chalkboard: true
+---
+
+## Biodiversidade e Mudanças Climáticas
+
+:::{.columns}
+:::{.column}
+![](img/ipcc_ipbes.jpg)
+:::
+
+:::{.column}
+- O termômetro mais preciso da MC
+- Múltiplos efeitos sobre o bem-estar humano
+- Necessita dados robustos
+:::
+:::
+:::
+
+##
+
+![](img/adapta_conc.png)
+
+##
+
+![](img/adapta_arv.png)
+
+## Lacunas de biodiversidade
+
+![](img/gbif.png)
+
+## Análise de Vulnerabilidade  
+
+$$ Vulnerabilidade = Sensibilidade + Eposilção - Capac Adapt $$ 
+
+## Sensibilidade
+
+![](img/sens.png)
+
+
+
+## Como interpretar os dados?
+
+:::{.columns}
+:::{.column}
+
+- **Indicador temático**
+  - **Indicadores**
+    - Dados brutos
+    
+:::
+:::{.column}
+
+![](img/tabela.png)
+
+:::
+:::
+
+
+## Indicadores de sensibilidade{.center}
+
+## Mudança e uso do solo
+
+![](img/luc.png){fig-align="center"}
+
+## Cobertura do solo
+
+![](img/cob.png){fig-align="center"}
+
+## Densidade populacional e de estabelecimentos
+
+![](img/dens_pop.png){fig-align="center"}
+
+
+## Infraestrutura
+
+![](img/infra.png){fig-align="center"}
+
+## Capacidade Adaptativa{.center}
+
+## Capacidade Adaptativa 
+
+
+![](img/capac.png){fig-align="center"}
+
+
+## Exposição {.center}
+
+## Cobertura natural exposta 
+
+![](img/expo.png){fig-align="center"}
+
+## Vulnerabilidade{.center}
+
+##  Vulnerabilidade = Exp + Sens - Capc
+
+![](img/vuln.png){fig-align="center"}
+
+
+## Índice de Ameaça Climática aos Biomas{.center}
+Dados climáticos (precipitação, temperatura, etc...)
+
+## Ameaça à integridade dos Biomas 
+
+![](img/ameaca.png){fig-align="center"}
+
+## Índice de Risco Climático aos Biomas{.center}
+Dados de Vulnerabiliade, Exposilção, Capacidade Adaptativa, etc...
+
+## Risco à integridade dos Biomas
+
+![](img/risco.png){fig-align="center"}
+
+## Conclusões
+
+- Pernambuco: hotspot vulnerável às MC.
+
+- Restaurar MA e Conservar Caatinga
+
+- Sistematizados dados sobre a biodiversidade de PE.
+
+- Risco sobe para todo PE: maior no sertão.
+
+- Aumentar cobertura de Unidades Conservação (UC) e sua implementação
+
+## Obrigado{.center}
+
+Felipe.plmelo@ufpe.br

@@ -833,3 +833,12 @@ C
 
 ```
 
+# Análises para as oficinas nas RDs
+
+Nesta sessão o objetivo é criar resumos analíticos e recomendações técnicas para a condução das oficinas. É importante salientar que praticamente todas essas infromações estão disponíveis na [Plataforma Adapta Brasil](https://adaptabrasil.mcti.gov.br/), de forma interativa e muito fácil de usar e entender. 
+
+## Cuidados com a interpretação por RDs
+
+O Governo de PE solicitou que essas análises fossem agrupadas por RDs de forma que a atuação do poder público replicasse a divisão do estado em regiões de desenvoilvimento. No entanto, é crucial copreender que apesar de não totalmente arbitrária, a divisão dos numicípiops de PE em RDs é artificial e portanto não e esperado que esses municípios se comportem de maneira similar para todos os indicadores, ainda que alguns serão similares sempre que o comportamento dessas variáveis sejam espacialmente determinado ou socioeconomicamente definido de acordo com características geográficas locais. Portanto, mesmo os resumos por RD precisam ser interpretados não só no seu padrão médio, mas na sua variação. É possível que muitas vezes, a variação seja ainda mais elucidativa que um valor médio que pode esconder discrepâncias importantes entre municípios da mesma RD.
+
+## Esquema proposto para a Biodviersidae

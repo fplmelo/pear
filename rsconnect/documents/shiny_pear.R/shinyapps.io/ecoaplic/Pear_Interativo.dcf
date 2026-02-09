@@ -1,0 +1,13 @@
+name: Pear_Interativo
+title: Pear_Interativo
+username: ecoaplic
+account: ecoaplic
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16615269
+bundleId: 11557328
+url: https://ecoaplic.shinyapps.io/Pear_Interativo/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .~lock.Relatório_produto_5-Template.docx#|.RData|1.dbf|1.prj|1.qml|1.shp|1.shx|adaptaBrasilAPIEstrutura.csv|analises_pear.html|analises_pear.qmd|API_adaptaBrasil.py|Dados_PE.xlsx|DadosBiod.csv|DadosBiod.xlsx|data_commp.csv|data_comp.rds|data_PE.csv|muni_pe.gpkg|PEAR-Biodiv.html|PEAR-Biodiv.qmd|reg_mun.csv|Relatório_produto_5-Template.docx|shiny_data.rds|Teorico_metodologico_Biodiversidade_Integridade_13_12_2024.pdf|analises_pear_files|img|PEAR-Biodiv_files|Source
