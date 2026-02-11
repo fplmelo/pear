@@ -11,21 +11,21 @@ dados_sf <- readRDS("shiny_data.rds") %>% st_transform(4326)
 
 
 # CORREÇÃO CRÍTICA: Forçar colunas de Ameaça e Risco a serem numéricas
-colunas_analise <- c("sensib", "expos", "ameaca_atual", "risco_atual", 
+colunas_analise <- c("sensib", "expos", "ameaca_atual", "risco_atual",
                      "am_prec_acum", "am_temp_med", "am..sazon..prep", "am.ampl_temp")
 
-medias_estado <- dados_sf %>% 
-  st_drop_geometry() %>% 
+medias_estado <- dados_sf %>%
+  st_drop_geometry() %>%
   summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)))
 
 ### PADRÃO DE CORES E CATEGORIZAÇÃO ###
-  cores_fixas <- c(
-    "Muito Baixo" = "#02c650", 
-    "Baixo"       = "#a9de00", 
-    "Médio"       = "#ffcd00", 
-    "Alto"        = "#ff8300", 
-    "Muito Alto"  = "#f40000"
-  )
+cores_fixas <- c(
+  "Muito Baixo" = "#02c650", 
+  "Baixo"       = "#a9de00", 
+  "Médio"       = "#ffcd00", 
+  "Alto"        = "#ff8300", 
+  "Muito Alto"  = "#f40000"
+)
 
 # Função auxiliar para categorizar os dados dinamicamente
 categorizar_valor <- function(valor) {
@@ -119,20 +119,20 @@ nomes_amigaveis <- c(
 
 hierarquia <- list(
   "Sensibilidade" = c("Mudança Uso Solo" = "s_luc_2017", "Cobertura do Solo" = "s_csol_2017", "Infraestrutura" = "s_infra_2017", "Capac. Adaptativa" = "s_cap"),
-  "Exposição"     = c("Cobertura Exposta" = "e_cobexpo", "Prioridade Cons." = "e_priocons", "Proteção Territorial" = "e_areaprot" ),
-  "Ameaça"        = c("Ameaça Atual" = "ameaca_atual",  "Ameaça Futura (1.5°C)" = "ameaca_SWL1.5", "Ameaça Futura (2.0°C)" = "ameaca_SWL2.0" ),
-  "Risco"         = c("Risco Atual" = "risco_atual", "Risco Futuro (1.5°C)" = "risco_SWL1.5", "Risco Futuro (2.0°C)" = "risco_SWL2.0")
-  )
+  "Exposição"      = c("Cobertura Exposta" = "e_cobexpo", "Prioridade Cons." = "e_priocons", "Proteção Territorial" = "e_areaprot" ),
+  "Ameaça"         = c("Ameaça Atual" = "ameaca_atual",  "Ameaça Futura (1.5°C)" = "ameaca_SWL1.5", "Ameaça Futura (2.0°C)" = "ameaca_SWL2.0" ),
+  "Risco"          = c("Risco Atual" = "risco_atual", "Risco Futuro (1.5°C)" = "risco_SWL1.5", "Risco Futuro (2.0°C)" = "risco_SWL2.0")
+)
 
 variaveis_brutas_map <- list(
-  "s_luc_2017"   = c("sl_agrotox", "sl_agr_fam", "sl_prat_sust", "sl_fogo"),
-  "s_csol_2017"  = c("sc_passivo", "sc_desmat", "sc_pastag", "sc_miner"),
+  "s_luc_2017"    = c("sl_agrotox", "sl_agr_fam", "sl_prat_sust", "sl_fogo"),
+  "s_csol_2017"   = c("sc_passivo", "sc_desmat", "sc_pastag", "sc_miner"),
   "s_dens_pop_faz" = c("sd_popul","sd_fazend"),
   "s_infra_2017" = c("si_rodov", "si_hidro"),
-  "s_cap"        = c("sc_orient", "sc_ucons"),
-  "e_cobexpo"    = c("e_areaprot", "e_priocons", "e_cobnat"),
+  "s_cap"         = c("sc_orient", "sc_ucons"),
+  "e_cobexpo"     = c("e_areaprot", "e_priocons", "e_cobnat"),
   "ameaca_atual" = c("am_prec_acum", "am_temp_med", "am_ampl_temp","am_sazon_prep"),
-  "risco_atual"  = c("ameaca_atual", "sensib", "expos"),
+  "risco_atual"   = c("ameaca_atual", "sensib", "expos"),
   "risco_SWL1.5" = c("ameaca_SWL1.5", "sensib", "expos"),
   "risco_SWL2.0" = c("ameaca_SWL2.0", "sensib", "expos")
 )
@@ -156,6 +156,14 @@ ui <- fluidPage(
                                 "Ameaça Atual" = "ameaca_atual", "Risco Atual" = "risco_atual"))
       ),
       hr(),
+      h4("Documentação"),
+      tags$a(href = "guia_pear_biodiv.pdf", 
+             icon("file-pdf"), " Baixar PDF Metodologia", 
+             target = "_blank", 
+             class = "btn btn-danger btn-block"),
+      br(),
+      helpText("As cores seguem a escala Adapta Brasil: Verde (Baixo) a Vermelho (Alto)."),
+      hr(),
       helpText("Mapa mostra panorama geral da RD em categorias. Gráficos abaixo mostram performance de cada município nos indicadores específicos que compõem a dimensão de análise")
     ),
     mainPanel(
@@ -176,13 +184,17 @@ ui <- fluidPage(
         
         tabPanel("Perfil do Município", br(), 
                  uiOutput("menu_municipios"), 
-                 plotOutput("plot_perfil_muni", height = "550px"))
+                 plotOutput("plot_perfil_muni", height = "550px")),
+        tabPanel("Metodologia", br(),
+                 tags$iframe(style = "height: 800px; width: 100%; border: none;", 
+                             src = "guia_pear_biodiv.pdf"))
       )
     )
   )
 )
 
-# --- SERVER CORRIGIDO ---
+
+# --- SERVER ---
 server <- function(input, output, session) {
   
   # 1. MAPA PANORAMA ESTADUAL (Mantido)
@@ -239,11 +251,10 @@ server <- function(input, output, session) {
     selectInput("subindice", "Indicador Específico:", choices = hierarquia[[input$dimensao]])
   })
   
-  # --- CORREÇÃO AQUI: GRÁFICO DE BARRAS DETALHADO ---
+  # --- GRÁFICO DE BARRAS DETALHADO ---
   output$plot_detalhado <- renderPlot({
     req(input$subindice)
     
-    # Define quais variáveis mostrar (brutas ou o índice selecionado)
     cols_alvo <- variaveis_brutas_map[[input$subindice]]
     if(is.null(cols_alvo)) cols_alvo <- input$subindice
     
@@ -258,13 +269,11 @@ server <- function(input, output, session) {
         Val = as.numeric(Val),
         Var_Nome = ifelse(Var %in% names(nomes_amigaveis), nomes_amigaveis[Var], Var),
         media_pe = as.numeric(medias_estado[Var]),
-        # Aqui emulamos a cor do mapa categorizando cada barra
         categ = factor(categorizar_valor(Val), levels = names(cores_fixas))
       )
     
     ggplot(df_plot, aes(x = reorder(nome, Val), y = Val)) +
       geom_col(aes(fill = categ), width = 0.6) + 
-      # Aplica as cores manuais definidas no dicionário cores_fixas
       scale_fill_manual(values = cores_fixas, name = "Categoria", drop = FALSE) +
       geom_hline(aes(yintercept = media_pe), color = "black", linetype = "dashed", size = 1) +
       facet_wrap(~Var_Nome, scales = "free_x") + 
@@ -281,7 +290,7 @@ server <- function(input, output, session) {
       )
   })
   
-  # --- 4. PERFIL DO MUNICÍPIO (Mantido com melhoria de fonte) ---
+  # --- 4. PERFIL DO MUNICÍPIO ---
   output$menu_municipios <- renderUI({
     municipios <- sort(unique(dados_filtrados()$nome))
     selectInput("selecao_muni", "Municípios para Comparação:", choices = municipios, multiple = TRUE, selected = municipios[1])

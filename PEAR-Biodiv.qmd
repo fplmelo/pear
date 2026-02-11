@@ -36,7 +36,13 @@ chalkboard: true
 
 ## Análise de Vulnerabilidade  
 
-$$ Vulnerabilidade = Sensibilidade + Eposilção - Capac Adapt $$ 
+$$ Vulnerabilidade = Sensibilidade + Eposição - Capac Adapt $$ 
+<br>
+<br>
+<br>
+<br>
+**Vamos explorar todos os índices**
+
 
 ## Sensibilidade
 

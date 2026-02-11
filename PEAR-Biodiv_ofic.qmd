@@ -1,0 +1,90 @@
+---
+title: "PEAR-Biodiversidade"
+author: "Felipe Melo <br> Universidade Federal de Pernmambuco"
+subtitle: ""
+format: revealjs
+editor: source
+chalkboard: true
+---
+
+## Biodiversidade e Mudanças Climáticas
+
+:::{.columns}
+:::{.column}
+![](img/ipcc_ipbes.jpg)
+:::
+
+:::{.column}
+- O termômetro mais preciso da MC
+- Múltiplos efeitos sobre o bem-estar humano
+- Necessita dados robustos
+:::
+:::
+:::
+
+##
+
+![](img/adapta_conc.png)
+
+##
+
+![](img/adapta_arv.png)
+
+## Lacunas de biodiversidade
+
+![](img/gbif.png)
+
+## Análise de Vulnerabilidade  
+
+$$ Vulnerabilidade = Sensibilidade + Eposição - Capac Adapt $$ 
+<br>
+<br>
+<br>
+<br>
+**Vamos explorar todos os índices**
+
+
+## Sensibilidade
+
+![](img/sens.png)
+
+
+
+## Como interpretar os dados?
+
+:::{.columns}
+:::{.column}
+
+- **Indicador temático**
+  - **Indicadores**
+    - Dados brutos
+    
+:::
+:::{.column}
+
+![](img/tabela.png)
+
+:::
+:::
+
+
+## Indicadores de sensibilidade{.center}
+
+## Mudança e uso do solo
+
+![](img/luc.png){fig-align="center"}
+
+## Documento de Apoio
+
+- Possui todas as análises detalhadas e comentadas
+- Explicação sobre metodologia e índices
+- Análises gerais para o Estado (não por RD)
+
+Pode ser consultado aqui
+
+
+
+
+## Obrigado{.center}
+
+Felipe.plmelo@ufpe.br

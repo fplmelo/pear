@@ -13,6 +13,7 @@ format: html
 ```{r}
 #| message: false
 #| warning: false
+#| include: false
 
 library(geobr)
 library(cowplot)
@@ -24,9 +25,9 @@ library(units)
 library(lwgeom) # otimizar junção dos grids
 library(plotly)
 
-data_PE <- read.csv2("~/pear/data_PE.csv", sep = ",", dec = ",") # 262mil ocorrencias de todas as espécies via GBIF
+data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies via GBIF
 
-adapta_pe<-read.csv2("~/pear/DadosBiod.csv", sep = "\t", dec = ",") # Dados do Adapta Brasil sobre Integridade dos Biomas
+adapta_pe<-read.csv("~/pear/DadosBiod.csv", sep = ";", dec = ",") # Dados do Adapta Brasil sobre Integridade dos Biomas
 adapta_pe %>% 
   as_tibble() %>% 
   rename(code_muni=geocod_ibge) %>% 
@@ -188,7 +189,7 @@ dados_comp_geom %>%
   group_by(rds) %>%
   summarise(across(geom, ~ st_combine(.)), .groups = "keep")->geom_rds # Funde bases de forma que as categorias de RDS são incluídas numa única base
 
-# ggplot(data=geom_rds)+geom_sf(aes(fill=rds)) # só checando se está correto. OK
+ggplot(data=geom_rds)+geom_sf(aes(fill=rds)) # só checando se está correto. OK
 
 centroids_rds <- geom_rds %>%
   st_make_valid() %>% 
