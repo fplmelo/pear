@@ -1,8 +1,23 @@
 ---
 title: "PEAR - Biodiversidade & Ecossistemas"
-author: "Felipe & Ivson"
-format: html
+author: "Felipe Melo"
+format: 
+  html:
+    code-fold: false
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
 ---
+
+```{r setup, include=FALSE}
+# Esta célula garante que as configurações globais sejam aplicadas
+#| echo: false -> Esconde o código
+#| warning: false -> Esconde avisos
+#| message: false -> Esconde mensagens de carregamento
+```
+
 # Respositório github para estas análises
 
 [AQUI](https://github.com/fplmelo/pear)
@@ -27,7 +42,7 @@ library(plotly)
 
 data_PE <- read.csv("~/pear/data_PE.csv", dec = ",") # 262mil ocorrencias de todas as espécies via GBIF
 
-adapta_pe<-read.csv("~/pear/DadosBiod.csv", sep = ";", dec = ",") # Dados do Adapta Brasil sobre Integridade dos Biomas
+adapta_pe<-read.csv("~/pear/DadosBiod.csv", sep = "\t", dec = ",") # Dados do Adapta Brasil sobre Integridade dos Biomas
 adapta_pe %>% 
   as_tibble() %>% 
   rename(code_muni=geocod_ibge) %>% 
@@ -76,6 +91,7 @@ ggplot() +
 ```{r}
 #| message: false
 #| warning: false
+#| include: false
 
 ## Registros por município
 
