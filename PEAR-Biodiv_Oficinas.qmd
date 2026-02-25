@@ -74,5 +74,5 @@ chalkboard: true
 
 - Esta é uma platadforma interativa que serve de apoio às oficinas
 - É importante se familiarizar com ela e preencher suas sugestões
-- Este é um trabalho em construção e é possível melhorar.
+- Este é um trabalho em construção e é possível melhorar
 
