@@ -5,7 +5,7 @@ account: ecoaplic
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 16615269
-bundleId: 11567715
+bundleId: 11630078
 url: https://ecoaplic.shinyapps.io/Pear_Interativo/
 version: 1
 asMultiple: FALSE

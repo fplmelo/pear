@@ -1,0 +1,78 @@
+---
+title: "PEAR-Biodiversidade"
+author: "Felipe Melo <br> Universidade Federal de Pernmambuco"
+subtitle: "Guia para Condução das Oficinas"
+format: revealjs
+editor: source
+chalkboard: true
+---
+
+## Biodiversidade e Mudanças Climáticas
+
+:::{.columns}
+:::{.column}
+![](img/ipcc_ipbes.jpg)
+:::
+
+:::{.column}
+- O termômetro mais preciso da MC
+- Múltiplos efeitos sobre o bem-estar humano
+- Necessita dados robustos
+:::
+:::
+:::
+
+
+## Como foi calculado?
+
+![](img/adapta_conc.png){fig-align=center}
+
+## Hierarquia de variáveis
+
+![](img/adapta_arv.png){fig-align=center}
+
+
+## Passo 1 -  Acesse a ferramenta online que pode ser acessada no QR-code abaixo
+
+![](img/qr_code.png){fig-align=center}
+
+## Passo 2 - Explore ferramenta
+
+![](img/video1.gif){fig-align=center}
+
+## Aba - Panorama para PE
+
+![](img/aba1.png){fig-align=center}
+
+** Informações gerais para o estado de PE considerando cada dimensão (sensisbilidade, exposição, etc...). Escolha dimensão e veja fatores que aumentam e medidas de contenção.**
+
+## Aba - Diagnóstico por RD
+
+![](img/aba2.png){fig-align=center}
+
+** Resumo geral da RD contendo pontos de destaque quanto a todoas as variáveis (positivos e negativos). Selecione a RD e veja seus resumos**
+
+## Aba -  Mapas e Detalhes
+
+![](img/aba3.gif){fig-align=center width=70%}
+
+**Aqui você pode navegar pelas RDs, escolha a dimensão e suas variáveis para entender os riscos e ameaças de cada região e por município.**
+
+## Aba - Perfil dos  municípios
+
+![](img/aba4.png){fig-align=center width=70%}
+
+**Nesta aba,  você pode selecionar 1 ou + municípios para comparálos entre si ou com a média de PE (círculos vermelhos)**
+
+## Aba - Coleta de percepções
+
+![](img/aba5.png){fig-align=center width=70%}
+
+**Aqui você pode escrever sobre sua prórpia percepção sobre as ameaças, desaios e soluções para a biodiversidade de sua RD**
+
+## Conclusão
+
+- Esta é uma platadforma interativa que serve de apoio às oficinas
+- É importante se familiarizar com ela e preencher suas sugestões
+- Este é um trabalho em construção e é possível melhorar.
+

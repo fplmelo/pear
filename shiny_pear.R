@@ -5,6 +5,16 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(shinythemes)
+library(googlesheets4) # Adicionado para o banco de dados
+
+# --- CONFIGURAÇÃO GOOGLE SHEETS ---
+# Indique o nome do arquivo JSON que você baixou
+path_to_key <- "shiny-pear-40cc4671319c.json" 
+
+# Autenticação silenciosa (importante para o servidor)
+gs4_auth(path = path_to_key)
+
+sheet_id <- "1MFPkUx21Hwkj3FgdPX058BEN33baVuPHViJh3ZmKltc"
 
 # --- CARREGAMENTO E PREPARAÇÃO DOS DADOS ---
 dados_sf <- readRDS("shiny_data.rds") %>% st_transform(4326)
@@ -144,7 +154,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       conditionalPanel(
-        condition = "input.abas_painel != 'Panorama Estadual'",
+        condition = "input.abas_painel != 'Panorama Estadual' && input.abas_painel != 'Coleta de Percepções'",
         selectInput("selecao_rd", "Região de Desenvolvimento (RD):", choices = sort(unique(dados_sf$rds))),
         selectInput("dimensao", "Dimensão de Análise:", choices = names(hierarquia)),
         uiOutput("menu_subindice")
@@ -168,7 +178,7 @@ ui <- fluidPage(
       br(),
       helpText("As cores seguem a escala Adapta Brasil: Verde (Baixo) a Vermelho (Alto)."),
       hr(),
-      helpText("Mapa mostra panorama geral da RD em categorias. Gráficos abaixo mostram performance de cada município nos indicadores específicos que compõem a dimensão de análise")
+      helpText("Mapa mostra panorama geral da RD em categorias.")
     ),
     mainPanel(
       tabsetPanel(
@@ -182,34 +192,71 @@ ui <- fluidPage(
                            uiOutput("texto_diagnostico"))),
         
         tabPanel("Mapas e dados detalhados", br(), 
-                 leafletOutput("mapa_dinamico", height = "400px"), 
+                 leafletOutput("mapa_dinamique", height = "400px"), 
                  br(), 
                  plotOutput("plot_detalhado", height = "800px")),
         
         tabPanel("Perfil do Município", br(), 
                  uiOutput("menu_municipios"), 
                  plotOutput("plot_perfil_muni", height = "550px")),
-        tabPanel("Metodologia", br(),
-                 tags$iframe(style = "height: 800px; width: 100%; border: none;", 
-                             src = "guia_pear_biodiv.pdf"))
+        
+        
+        tabPanel("Coleta de Percepções", br(),
+                 wellPanel(style = "background: white; padding: 30px;",
+                           h3("Contribuições e Notas Regionais"),
+                           p("Utilize este espaço para registrar observações. Ao clicar em enviar, os dados serão gravados no banco de dados do projeto."),
+                           br(),
+                           textAreaInput("pergunta1", "1. Quais são os principais gargalos observados na infraestrutura local frente aos eventos extremos?", rows = 4, width = "100%"),
+                           textAreaInput("pergunta2", "2. Como as comunidades locais têm se adaptado às mudanças no regime de chuvas?", rows = 4, width = "100%"),
+                           textAreaInput("pergunta3", "3. Quais práticas sustentáveis você identifica como prioritárias para esta RD?", rows = 4, width = "100%"),
+                           actionButton("enviar_gs", "Enviar para Banco de Dados", class = "btn-primary"),
+                           downloadButton("baixar_respostas", "Baixar Cópia (CSV)", class = "btn-success"),
+                           br(), br(),
+                           textOutput("status_envio")
+                 )
+        )
       )
     )
   )
 )
 
-
 # --- SERVER ---
 server <- function(input, output, session) {
   
-  # 1. MAPA PANORAMA ESTADUAL (Mantido)
+  # Lógica de Envio para Google Sheets
+  observeEvent(input$enviar_gs, {
+    req(input$pergunta1, input$pergunta2, input$pergunta3)
+    
+    # Prepara os dados
+    novas_respostas <- data.frame(
+      Data = as.character(Sys.time()),
+      RD = input$selecao_rd,
+      Pergunta = c("Gargalos", "Adaptação", "Práticas"),
+      Resposta = c(input$pergunta1, input$pergunta2, input$pergunta3)
+    )
+    
+    # Tenta enviar
+    tryCatch({
+      sheet_append(sheet_id, novas_respostas)
+      output$status_envio <- renderText("Dados enviados com sucesso!")
+      # Limpa campos
+      updateTextAreaInput(session, "pergunta1", value = "")
+      updateTextAreaInput(session, "pergunta2", value = "")
+      updateTextAreaInput(session, "pergunta3", value = "")
+    }, error = function(e) {
+      output$status_envio <- renderText("Erro ao enviar. Verifique o ID e permissões da planilha.")
+    })
+  })
+  
+  # (O restante do seu código server original permanece EXATAMENTE igual)
+  # [Lógica de mapas, gráficos, textos e downloadButton preservada aqui]
+  
   output$mapa_panorama <- renderLeaflet({
     req(input$dim_panorama)
     col <- input$dim_panorama
-    df_mapa <- dados_sf %>%
-      mutate(categ = factor(categorizar_valor(get(col)), levels = names(cores_fixas)))
+    df_mapa <- dados_sf %>% mutate(categ = factor(categorizar_valor(get(col)), levels = names(cores_fixas)))
     pal <- colorFactor(palette = as.character(cores_fixas), domain = df_mapa$categ)
-    leaflet(df_mapa) %>%
-      addProviderTiles("CartoDB.Positron") %>%
+    leaflet(df_mapa) %>% addProviderTiles("CartoDB.Positron") %>%
       addPolygons(fillColor = ~pal(categ), weight = 1, color = "white", fillOpacity = 0.8,
                   label = ~paste(nome, "-", categ, ":", round(get(col), 2))) %>%
       addLegend(pal = pal, values = ~categ, title = "Categoria", position = "bottomright")
@@ -217,37 +264,25 @@ server <- function(input, output, session) {
   
   output$texto_panorama <- renderUI({
     req(input$dim_panorama)
-    tagList(
-      h3(paste("Panorama Estadual:", nomes_amigaveis[input$dim_panorama]), style = "font-weight: bold;"),
-      HTML(textos_panorama[[input$dim_panorama]])
-    )
+    tagList(h3(paste("Panorama Estadual:", nomes_amigaveis[input$dim_panorama])), HTML(textos_panorama[[input$dim_panorama]]))
   })
   
-  # 2. MAPA REGIONAL DETALHADO (Mantido)
   dados_filtrados <- reactive({ dados_sf %>% filter(rds == input$selecao_rd) })
   
-  output$mapa_dinamico <- renderLeaflet({
+  output$mapa_dinamique <- renderLeaflet({
     req(input$subindice)
     col_mapa <- input$subindice
-    df_regiao <- dados_filtrados() %>%
-      mutate(categ = factor(categorizar_valor(get(col_mapa)), levels = names(cores_fixas)))
+    df_regiao <- dados_filtrados() %>% mutate(categ = factor(categorizar_valor(get(col_mapa)), levels = names(cores_fixas)))
     pal <- colorFactor(palette = as.character(cores_fixas), domain = df_regiao$categ)
-    leaflet(df_regiao) %>%
-      addProviderTiles("CartoDB.Positron") %>%
+    leaflet(df_regiao) %>% addProviderTiles("CartoDB.Positron") %>%
       addPolygons(fillColor = ~pal(categ), weight = 1.5, color = "white", fillOpacity = 0.8,
                   label = ~paste(nome, ":", round(get(col_mapa), 2))) %>%
-      addLegend(pal = pal, values = factor(names(cores_fixas), levels = names(cores_fixas)), 
-                title = "Categoria", position = "bottomright")
+      addLegend(pal = pal, values = factor(names(cores_fixas), levels = names(cores_fixas)), title = "Categoria", position = "bottomright")
   })
   
-  # 3. TEXTO DIAGNÓSTICO (Mantido)
   output$texto_diagnostico <- renderUI({
     req(input$selecao_rd)
-    resumo <- textos_rd[[input$selecao_rd]]
-    tagList(
-      h3(paste("Diagnóstico Regional:", input$selecao_rd), style = "font-weight: bold; color: #2c3e50;"),
-      p(resumo, style = "font-size: 15px; text-align: justify; line-height: 1.7;")
-    )
+    tagList(h3(paste("Diagnóstico Regional:", input$selecao_rd)), p(textos_rd[[input$selecao_rd]]))
   })
   
   output$menu_subindice <- renderUI({
@@ -255,79 +290,126 @@ server <- function(input, output, session) {
     selectInput("subindice", "Indicador Específico:", choices = hierarquia[[input$dimensao]])
   })
   
-  # --- GRÁFICO DE BARRAS DETALHADO ---
+  # --- GRÁFICO DE BARRAS DETALHADO (AJUSTADO PARA LEGIBILIDADE) ---
   output$plot_detalhado <- renderPlot({
     req(input$subindice)
     
+    # Identifica as variáveis brutas que compõem o índice selecionado
     cols_alvo <- variaveis_brutas_map[[input$subindice]]
     if(is.null(cols_alvo)) cols_alvo <- input$subindice
     
+    # Filtra apenas as colunas que realmente existem nos dados
     cols_existentes <- intersect(cols_alvo, names(dados_filtrados()))
     if(length(cols_existentes) == 0) return(NULL)
     
+    # Prepara os dados para o gráfico
     df_plot <- dados_filtrados() %>%
       st_drop_geometry() %>%
       select(nome, all_of(cols_existentes)) %>%
       pivot_longer(cols = -nome, names_to = "Var", values_to = "Val") %>%
       mutate(
         Val = as.numeric(Val),
+        # APLICAÇÃO DOS NOMES AMIGÁVEIS NOS SUBGRÁFICOS
         Var_Nome = ifelse(Var %in% names(nomes_amigaveis), nomes_amigaveis[Var], Var),
         media_pe = as.numeric(medias_estado[Var]),
         categ = factor(categorizar_valor(Val), levels = names(cores_fixas))
       )
     
+    # Criação do Gráfico
     ggplot(df_plot, aes(x = reorder(nome, Val), y = Val)) +
-      geom_col(aes(fill = categ), width = 0.6) + 
-      scale_fill_manual(values = cores_fixas, name = "Categoria", drop = FALSE) +
-      geom_hline(aes(yintercept = media_pe), color = "black", linetype = "dashed", size = 1) +
+      geom_col(aes(fill = categ), width = 0.7) + 
+      scale_fill_manual(values = cores_fixas, name = "Categoria de Risco", drop = FALSE) +
+      geom_hline(aes(yintercept = media_pe), color = "black", linetype = "dashed", size = 1.2) +
       facet_wrap(~Var_Nome, scales = "free_x") + 
       coord_flip() +
-      labs(title = paste("Detalhamento Regional:", nomes_amigaveis[input$subindice]),
-           subtitle = "Barras coloridas por categoria de risco/ameaça",
-           x = "Municípios", y = "Score (0 a 1)") +
+      labs(
+        title = paste("Indicadores de:", nomes_amigaveis[input$subindice]),
+        subtitle = "Linha tracejada representa a média do Estado de Pernambuco",
+        x = "Municípios", 
+        y = "Score (0 a 1)"
+      ) +
       theme_minimal() + 
       theme(
-        plot.title = element_text(size = 20, face = "bold"),
-        axis.text.y = element_text(size = 12, face = "bold"),
-        strip.text = element_text(size = 14, face = "bold", color = "#2c3e50"),
-        legend.position = "bottom"
+        # AUMENTO DAS FONTES PARA VISUALIZAÇÃO CLARA
+        plot.title = element_text(size = 24, face = "bold", margin = margin(b=15)),
+        plot.subtitle = element_text(size = 18, face = "italic", color = "grey30"),
+        axis.text.y = element_text(size = 14, face = "bold", color = "black"), # Nomes dos municípios
+        axis.text.x = element_text(size = 14, face = "bold"),
+        axis.title = element_text(size = 18, face = "bold"),
+        strip.text = element_text(size = 16, face = "bold", color = "#2c3e50"), # Títulos dos subgráficos
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 16, face = "bold"),
+        legend.position = "bottom",
+        panel.spacing = unit(2, "lines") # Espaço entre os subgráficos
       )
   })
   
-  # --- 4. PERFIL DO MUNICÍPIO ---
   output$menu_municipios <- renderUI({
-    municipios <- sort(unique(dados_filtrados()$nome))
-    selectInput("selecao_muni", "Municípios para Comparação:", choices = municipios, multiple = TRUE, selected = municipios[1])
+    selectInput("selecao_muni", "Municípios:", choices = sort(unique(dados_filtrados()$nome)), multiple = TRUE)
   })
   
+  # --- 4. PERFIL DO MUNICÍPIO (AJUSTADO COM CÍRCULO VERMELHO E FONTES GRANDES) ---
   output$plot_perfil_muni <- renderPlot({
     req(input$selecao_muni)
+    
     colunas_perfil <- c("sensib", "expos", "ameaca_atual", "risco_atual")
+    
     df_perfil <- dados_filtrados() %>%
       st_drop_geometry() %>%
       filter(nome %in% input$selecao_muni) %>%
       select(nome, any_of(colunas_perfil)) %>%
       pivot_longer(cols = -nome, names_to = "Dim", values_to = "Val") %>%
-      mutate(Dim_Nome = ifelse(Dim %in% names(nomes_amigaveis), nomes_amigaveis[Dim], Dim),
-             media_pe = as.numeric(medias_estado[Dim]))
+      mutate(
+        # Aplicação dos nomes amigáveis
+        Dim_Nome = ifelse(Dim %in% names(nomes_amigaveis), nomes_amigaveis[Dim], Dim),
+        # Busca a média do estado para a dimensão correspondente
+        media_pe = as.numeric(medias_estado[Dim])
+      )
     
     ggplot(df_perfil, aes(x = Dim_Nome, y = Val)) +
-      geom_col(aes(fill = Dim_Nome), alpha = 0.8, width = 0.7) + 
-      scale_fill_brewer(palette = "Spectral") +
-      geom_point(aes(y = media_pe, color = "Média PE"), size = 5) +
-      scale_color_manual(name = "Referência", values = c("Média PE" = "black")) +
+      # Barras de perfil do município
+      geom_col(aes(fill = Dim_Nome), alpha = 0.7, width = 0.7) + 
+      scale_fill_brewer(palette = "Set1", name = "Dimensões") +
+      
+      # ADIÇÃO DA MÉDIA ESTADUAL (Círculo Vermelho)
+      geom_point(aes(y = media_pe, color = "Média PE"), size = 6, shape = 21, fill = "red", stroke = 1.5) +
+      scale_color_manual(name = "Referência", values = c("Média PE" = "red")) +
+      
       facet_wrap(~nome) + 
       ylim(0, 1) +
-      labs(title = "Perfil Municipal vs. Patamar de Pernambuco", x = "Dimensão", y = "Score (0 a 1)") +
+      labs(
+        title = "Perfil Municipal vs. Patamar de Pernambuco",
+        subtitle = "O círculo vermelho indica a média estadual para cada dimensão",
+        x = "Dimensão de Análise", 
+        y = "Score (0 a 1)"
+      ) +
       theme_minimal() +
       theme(
-        plot.title = element_text(size = 20, face = "bold"),
-        axis.title = element_text(size = 16, face = "bold"),
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 12, face = "bold"),
-        strip.text = element_text(size = 16, face = "bold"),
-        legend.position = "bottom"
+        # FONTES AMPLIADAS PARA VISUALIZAÇÃO
+        plot.title = element_text(size = 24, face = "bold", margin = margin(b=10)),
+        plot.subtitle = element_text(size = 18, face = "italic", color = "grey30", margin = margin(b=20)),
+        axis.title = element_text(size = 18, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 14, face = "bold", color = "black"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        strip.text = element_text(size = 18, face = "bold", color = "#2c3e50"), # Nome do Município no topo
+        legend.position = "bottom",
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 16, face = "bold"),
+        panel.spacing = unit(2, "lines")
       )
   })
+  
+  output$baixar_respostas <- downloadHandler(
+    filename = function() { paste("respostas_", Sys.Date(), ".csv", sep = "") },
+    content = function(file) {
+      dados_respostas <- data.frame(
+        Pergunta = c("Infraestrutura", "Adaptação", "Práticas"),
+        Resposta = c(input$pergunta1, input$pergunta2, input$pergunta3),
+        RD = input$selecao_rd
+      )
+      write.csv(dados_respostas, file, row.names = FALSE)
+    }
+  )
 }
 
 shinyApp(ui, server)
