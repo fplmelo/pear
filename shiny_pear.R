@@ -9,7 +9,7 @@ library(googlesheets4) # Adicionado para o banco de dados
 
 # --- CONFIGURAÇÃO GOOGLE SHEETS ---
 # Indique o nome do arquivo JSON que você baixou
-path_to_key <- "shiny-pear-40cc4671319c.json" 
+path_to_key <- "shiny-pear-a32388b94421.json" 
 
 # Autenticação silenciosa (importante para o servidor)
 gs4_auth(path = path_to_key)
